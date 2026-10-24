@@ -20,7 +20,7 @@ echo "==> 安装构建依赖"
 dnf -y --setopt=install_weak_deps=False install \
     cmake gcc gcc-c++ make \
     ncurses-devel openssl-devel zlib-devel libaio-devel libtirpc-devel rpcgen numactl-devel \
-    bison \
+    bison m4 \
     perl perl-Getopt-Long perl-Data-Dumper perl-File-Temp \
     systemd-devel systemd-rpm-macros \
     rpm-build redhat-rpm-config \

@@ -7,6 +7,10 @@ set -eu
 if [ -n "${BASH_VERSION:-}" ]; then set +o pipefail; fi  # GitHub 步骤会带 -o pipefail 并被继承
 
 TOP="${RPMBUILD_TOP:-/build/rpmbuild}"
+TARGET_NAME="${TARGET_NAME:-Kylin V10 SP3 (aarch64)}"
+GLIBC_MAX="${GLIBC_MAX:-2.28}"
+EXPECT_ARCH="${EXPECT_ARCH:-aarch64}"
+ARCH_HINT="${ARCH_HINT:-ARM aarch64}"
 SRC_NAME="${SRC_NAME:-mysql-5.7.44}"
 WORK="$(mktemp -d)"
 trap 'rm -rf "$WORK"' EXIT
@@ -29,17 +33,21 @@ echo
 echo "=================== 1. 架构一致性 ====================="
 ARCHS="$(rpm -qp --qf '%{ARCH}\n' $RPMS | sort -u | grep -v '^src$' || true)"
 echo "    架构集合: ${ARCHS}"
-if echo "$ARCHS" | grep -qv '^aarch64$'; then
-    echo "!! 存在非 aarch64 产物"; exit 1
+if echo "$ARCHS" | grep -qv "^${EXPECT_ARCH}$"; then
+    echo "!! 存在非 ${EXPECT_ARCH} 产物"; exit 1
 fi
 
 echo
 echo "=================== 2. debuginfo ======================"
+# EL8 按子包拆 debuginfo；openEuler 默认只出一个总包，两种都接受
 DBG="$(find RPMS -name '*server-debuginfo-*.rpm' | sort | sed -n '1p' || true)"
+if [ -z "$DBG" ]; then
+    DBG="$(find RPMS -name '*-debuginfo-*.rpm' | grep -v debugsource | sort | sed -n '1p' || true)"
+fi
 DBG_ALL="$(find RPMS -name '*-debuginfo-*.rpm' | wc -l)"
 if [ -n "$DBG" ]; then
-    echo "    debuginfo 包 ${DBG_ALL} 个，server 包: $(basename "$DBG") ($(du -h "$DBG" | cut -f1))"
-    echo "    其中 .debug 文件 $(rpm -qlp "$DBG" | grep -c '\.debug$') 个（布局随 EL8 默认，不做路径断言）"
+    echo "    debuginfo 包 ${DBG_ALL} 个，代表: $(basename "$DBG") ($(du -h "$DBG" | cut -f1))"
+    echo "    其中 .debug 文件 $(rpm -qlp "$DBG" | grep -c '\.debug$') 个（布局随发行版默认，不做路径断言）"
 else
     echo "!! 未生成 debuginfo 包"
     exit 1
@@ -58,10 +66,10 @@ for f in $RPMS; do
         MAXV="$v"
     fi
 done
-echo "    最高依赖符号版本: ${MAXV:-未知}  (麒麟 V10 SP3 提供到 2.28)"
+echo "    最高依赖符号版本: ${MAXV:-未知}  (目标平台 ${TARGET_NAME} 上限 ${GLIBC_MAX})"
 # 取 MAXV 与 2.28 的较大者：若较大者不是 2.28，说明依赖了更高的符号版本
-if [ -n "$MAXV" ] && [ "$(printf '%s\n2.28\n' "$MAXV" | sort -V | tail -1)" != "2.28" ]; then
-    echo "!! 产物依赖 GLIBC_${MAXV}，高于麒麟 V10 SP3 的 2.28，装不上"
+if [ -n "$MAXV" ] && [ "$(printf '%s\n%s\n' "$MAXV" "$GLIBC_MAX" | sort -V | tail -1)" != "$GLIBC_MAX" ]; then
+    echo "!! 产物依赖 GLIBC_${MAXV}，高于 ${TARGET_NAME} 的 ${GLIBC_MAX}，装不上"
     exit 1
 fi
 
@@ -93,8 +101,8 @@ done
 echo
 echo "=================== 5. 二进制 ELF 架构 ================"
 file "$WORK/usr/sbin/mysqld" | sed 's/^/    /'
-file "$WORK/usr/sbin/mysqld" | grep -q 'ARM aarch64' \
-    || { echo "!! mysqld 不是 aarch64 ELF"; exit 1; }
+file "$WORK/usr/sbin/mysqld" | grep -q "${ARCH_HINT}" \
+    || { echo "!! mysqld 不是 ${EXPECT_ARCH} ELF"; exit 1; }
 
 echo
 echo "=================== 6. 脚本片段 ======================="
@@ -106,7 +114,7 @@ echo "=================== 7. 生成校验和与构建信息 ==========="
 sed 's/^/    /' SHA256SUMS | sed -n '1,20p'
 
 {
-    echo "MySQL ${SRC_NAME#mysql-} RPM build for Kylin V10 SP3 (aarch64)"
+    echo "MySQL ${SRC_NAME#mysql-} RPM build for ${TARGET_NAME}"
     echo "=============================================================="
     echo "build time   : $(date -u '+%Y-%m-%d %H:%M:%S UTC')"
     echo "source repo  : ${GITHUB_REPOSITORY:-dreamalloc/mysql-server}"
@@ -125,7 +133,7 @@ sed 's/^/    /' SHA256SUMS | sed -n '1,20p'
         printf '  %-64s %8s\n' "$(basename "$f")" "$(du -h "$f" | cut -f1)"
     done
     echo
-    echo "Install on Kylin V10 SP3 (aarch64)"
+    echo "Install on ${TARGET_NAME}"
     echo "----------------------------------"
     echo "  tar xf mysql-5.7.44-kylin10-aarch64-rpm.tar.gz"
     echo "  dnf install ./*.rpm            # 或 rpm -Uvh ./*.rpm"

@@ -102,7 +102,11 @@ jobs:
           echo "detected version: $FULL"
           [ "$FULL" = "5.7.44" ] || { echo "::error::源码版本为 $FULL，本流水线只负责 5.7.44"; exit 1; }
           # 记录 commit，用于发布说明与可复现性
-          git -C src rev-parse HEAD | tee /tmp/src_commit.txt
+          if command -v git >/dev/null 2>&1; then
+            git -C src rev-parse HEAD | tee /tmp/src_commit.txt
+          else
+            echo "unknown (no git in image)" | tee /tmp/src_commit.txt
+          fi
 
       - name: 释放磁盘（源码 .git 约 1GB）
         run: rm -rf src/.git && df -h / | sed 's/^/          /'

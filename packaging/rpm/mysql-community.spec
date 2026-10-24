@@ -25,6 +25,14 @@
 # debuginfo 体积很大（mysqld 单个 .debug 约 300-500MB），用更高压缩比
 %global _binary_payload w2.xzdio
 
+# openEuler 24.03 (gcc 12 / glibc 2.38)：5.7 老代码会触发新版告警，
+# 这些是 warning 级别，配合 -fcommon 一起关掉即可
+%if 0%{?oe2403}
+%global extra_warn -Wno-free-nonheap-object -Wno-array-bounds -Wno-stringop-overflow -Wno-maybe-uninitialized
+%else
+%global extra_warn %{nil}
+%endif
+
 Name:           mysql-%{product}
 Version:        5.7.44
 Release:        1%{?dist}
@@ -33,9 +41,6 @@ License:        GPLv2
 URL:            https://github.com/dreamalloc/mysql-server
 Source0:        %{src_dir}.tar.gz
 Source1:        boost_1_59_0.tar.gz
-
-BuildArch:      aarch64
-ExclusiveArch:  aarch64
 
 BuildRequires:  cmake >= 3.5.1
 BuildRequires:  gcc gcc-c++ make
@@ -46,12 +51,16 @@ BuildRequires:  libaio-devel
 BuildRequires:  libtirpc-devel
 BuildRequires:  rpcgen
 BuildRequires:  numactl-devel
-BuildRequires:  bison
+BuildRequires:  bison m4
 BuildRequires:  perl
 BuildRequires:  perl(Getopt::Long) perl(Data::Dumper)
 BuildRequires:  systemd-devel
 BuildRequires:  pkgconfig(systemd)
+%if 0%{?oe2403}
+BuildRequires:  rpm-build openEuler-rpm-config
+%else
 BuildRequires:  rpm-build redhat-rpm-config
+%endif
 BuildRequires:  findutils which tar gzip
 
 %description
@@ -152,11 +161,11 @@ cmake .. \
   -DBUILD_CONFIG=mysql_release \
   -DINSTALL_LAYOUT=RPM \
   -DCMAKE_BUILD_TYPE=RelWithDebInfo \
-  -DCMAKE_C_FLAGS="%{optflags} -fno-omit-frame-pointer -fcommon" \
-  -DCMAKE_CXX_FLAGS="%{optflags} -fno-omit-frame-pointer -fcommon" \
+  -DCMAKE_C_FLAGS="%{optflags} -fno-omit-frame-pointer -fcommon %{extra_warn}" \
+  -DCMAKE_CXX_FLAGS="%{optflags} -fno-omit-frame-pointer -fcommon %{extra_warn}" \
   -DWITH_BOOST=%{_builddir}/boost \
   -DWITH_SYSTEMD=1 \
-  -DWITH_SSL=system \
+  -DWITH_SSL=%{?with_ssl}%{!?with_ssl:system} \
   -DWITH_ZLIB=system \
   -DWITH_MYSQLX=1 \
   -DWITH_NUMA=1 \
@@ -207,6 +216,14 @@ rm -f  %{buildroot}%{_datadir}/mysql/mysqld_multi.server
 rm -f  %{buildroot}%{_bindir}/mysql_embedded
 rm -f  %{buildroot}%{_bindir}/mysql_client_test_embedded
 rm -f  %{buildroot}%{_bindir}/mysqltest_embedded
+# systemd 255 移除了 PermissionsStartOnly；openEuler 24.03 需删掉该行，
+# 否则 ExecStartPre 会以 mysql 身份运行、无法创建日志与数据目录
+%if 0%{?oe2403}
+sed -i '/^PermissionsStartOnly=/d' \
+    %{buildroot}%{_unitdir}/mysqld.service \
+    %{buildroot}%{_unitdir}/mysqld@.service
+%endif
+
 # systemd 模式下不安装 mysqld_safe/mysqld_multi 脚本，其 man 页一并去掉
 
 # 供首次构建校准 %%files 使用：把 buildroot 清单写到日志
@@ -221,6 +238,7 @@ getent passwd mysql >/dev/null 2>&1 || \
         -c "MySQL Server" mysql >/dev/null 2>&1 || :
 
 %post server
+[ -e /var/log/mysqld.log ] || install -m 0640 -o mysql -g mysql /dev/null /var/log/mysqld.log >/dev/null 2>&1 || :
 %systemd_post mysqld.service
 # 首次安装即开机自启；数据目录初始化由 mysqld_pre_systemd 在首次 start 时完成
 if [ $1 -eq 1 ]; then

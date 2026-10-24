@@ -41,19 +41,29 @@ rpmspec -q --qf '    %{NAME}-%{VERSION}-%{RELEASE}.%{ARCH}\n' "${TOP}/SPECS/mysq
 JOBS="$(nproc)"
 echo "==> rpmbuild -ba  (dist=${DIST_TAG}, -j${JOBS})"
 
-EXTRA_ARG=""
+# 用 set -- 组装参数，避免引号/空值被词分割搞坏
+set -- -ba "${TOP}/SPECS/mysql-community.spec" \
+    --define "_topdir ${TOP}" \
+    --define "dist ${DIST_TAG}" \
+    --define "_smp_mflags -j${JOBS}"
+
+# 发行版差异开关（用 if 而不是 &&，避免 set -e 下的返回值歧义）
+if [ -n "${WITH_SSL:-}" ]; then
+    set -- "$@" --define "with_ssl ${WITH_SSL}"
+    echo "    (SSL: ${WITH_SSL})"
+fi
+if [ -n "${BUILD_FLAVOR:-}" ]; then
+    set -- "$@" --define "${BUILD_FLAVOR} 1"
+    echo "    (flavor: ${BUILD_FLAVOR})"
+fi
+
 if [ "${ALLOW_UNPACKAGED:-0}" = "1" ]; then
     echo "    [调试模式] 容忍未打包文件（产物不完整，禁止发布）"
-    EXTRA_ARG='--define _unpackaged_files_terminate_build 0'
+    set -- "$@" --define "_unpackaged_files_terminate_build 0"
 fi
 
 set +e
-rpmbuild -ba "${TOP}/SPECS/mysql-community.spec" \
-    --define "_topdir ${TOP}" \
-    --define "dist ${DIST_TAG}" \
-    --define "_smp_mflags -j${JOBS}" \
-    $EXTRA_ARG \
-    > "${TOP}/build.log" 2>&1
+rpmbuild "$@" > "${TOP}/build.log" 2>&1
 RC=$?
 set -e
 tail -n 30 "${TOP}/build.log"
