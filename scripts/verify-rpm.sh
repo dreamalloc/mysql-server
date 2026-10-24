@@ -39,11 +39,15 @@ fi
 
 echo
 echo "=================== 2. debuginfo ======================"
+# EL8 按子包拆 debuginfo；openEuler 默认只出一个总包，两种都接受
 DBG="$(find RPMS -name '*server-debuginfo-*.rpm' | sort | sed -n '1p' || true)"
+if [ -z "$DBG" ]; then
+    DBG="$(find RPMS -name '*-debuginfo-*.rpm' | grep -v debugsource | sort | sed -n '1p' || true)"
+fi
 DBG_ALL="$(find RPMS -name '*-debuginfo-*.rpm' | wc -l)"
 if [ -n "$DBG" ]; then
-    echo "    debuginfo 包 ${DBG_ALL} 个，server 包: $(basename "$DBG") ($(du -h "$DBG" | cut -f1))"
-    echo "    其中 .debug 文件 $(rpm -qlp "$DBG" | grep -c '\.debug$') 个（布局随 EL8 默认，不做路径断言）"
+    echo "    debuginfo 包 ${DBG_ALL} 个，代表: $(basename "$DBG") ($(du -h "$DBG" | cut -f1))"
+    echo "    其中 .debug 文件 $(rpm -qlp "$DBG" | grep -c '\.debug$') 个（布局随发行版默认，不做路径断言）"
 else
     echo "!! 未生成 debuginfo 包"
     exit 1
