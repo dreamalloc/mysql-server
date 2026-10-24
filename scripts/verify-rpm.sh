@@ -9,6 +9,8 @@ if [ -n "${BASH_VERSION:-}" ]; then set +o pipefail; fi  # GitHub 步骤会带 -
 TOP="${RPMBUILD_TOP:-/build/rpmbuild}"
 TARGET_NAME="${TARGET_NAME:-Kylin V10 SP3 (aarch64)}"
 GLIBC_MAX="${GLIBC_MAX:-2.28}"
+EXPECT_ARCH="${EXPECT_ARCH:-aarch64}"
+ARCH_HINT="${ARCH_HINT:-ARM aarch64}"
 SRC_NAME="${SRC_NAME:-mysql-5.7.44}"
 WORK="$(mktemp -d)"
 trap 'rm -rf "$WORK"' EXIT
@@ -31,8 +33,8 @@ echo
 echo "=================== 1. 架构一致性 ====================="
 ARCHS="$(rpm -qp --qf '%{ARCH}\n' $RPMS | sort -u | grep -v '^src$' || true)"
 echo "    架构集合: ${ARCHS}"
-if echo "$ARCHS" | grep -qv '^aarch64$'; then
-    echo "!! 存在非 aarch64 产物"; exit 1
+if echo "$ARCHS" | grep -qv "^${EXPECT_ARCH}$"; then
+    echo "!! 存在非 ${EXPECT_ARCH} 产物"; exit 1
 fi
 
 echo
@@ -95,8 +97,8 @@ done
 echo
 echo "=================== 5. 二进制 ELF 架构 ================"
 file "$WORK/usr/sbin/mysqld" | sed 's/^/    /'
-file "$WORK/usr/sbin/mysqld" | grep -q 'ARM aarch64' \
-    || { echo "!! mysqld 不是 aarch64 ELF"; exit 1; }
+file "$WORK/usr/sbin/mysqld" | grep -q "${ARCH_HINT}" \
+    || { echo "!! mysqld 不是 ${EXPECT_ARCH} ELF"; exit 1; }
 
 echo
 echo "=================== 6. 脚本片段 ======================="

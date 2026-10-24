@@ -55,6 +55,8 @@ env:
   BUILD_FLAVOR: oe2403
   TARGET_NAME: "openEuler 24.03 LTS (x86_64)"
   GLIBC_MAX: "2.38"
+  EXPECT_ARCH: "x86_64"
+  ARCH_HINT: "x86-64"
 
 jobs:
   build:
