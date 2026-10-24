@@ -1,0 +1,184 @@
+name: "Build MySQL 8.0.37 RPM (openEuler 24.03 LTS / x86_64)"
+
+# ─────────────────────────────────────────────────────────────────────────────
+# 与 5.7 版流水线（build-mysql57-openeuler2403-x86_64.yml）同构，差异点：
+#   1. 源码来自上游 mysql/mysql-server 的 mysql-8.0.37 tag
+#      （本 fork 的 8.0 分支停在 8.0.35，没有 8.0.37）
+#   2. 版本文件是 MYSQL_VERSION（5.7 是 VERSION）
+#   3. Boost 1.77.0 / .tar.bz2（5.7 是 1.59.0 / .tar.gz）
+#   4. spec 用 mysql80-community.spec；systemd 单元是 Type=notify，无需补丁
+#   5. 8.0 的 WITH_SSL 没有 bundled 档位（只有 opensslN / yes / 路径），
+#      直接用系统 OpenSSL 3.0 —— 8.0.30 起已支持
+# ─────────────────────────────────────────────────────────────────────────────
+
+on:
+  workflow_dispatch:
+    inputs:
+      source_ref:
+        description: "MySQL 源码 ref（tag / 分支 / commit）"
+        required: true
+        default: "mysql-8.0.37"
+        type: string
+      dist_tag:
+        description: "Release 后缀，写入 Release: 1<dist_tag>"
+        required: true
+        default: ".oe2403"
+        type: string
+      upload_release:
+        description: "构建成功后创建 GitHub Release"
+        required: true
+        default: true
+        type: boolean
+      allow_unpackaged:
+        description: "调试用：容忍未打包文件（仅用于校准 %files，禁止用于发布）"
+        required: true
+        default: false
+        type: boolean
+
+permissions:
+  contents: write
+
+concurrency:
+  group: build-mysql80-oe2403-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  SRC_REF: ${{ github.event.inputs.source_ref || 'mysql-8.0.37' }}
+  DIST_TAG: ${{ github.event.inputs.dist_tag || '.oe2403' }}
+  SRC_NAME: mysql-8.0.37
+  SPEC_FILE: mysql80-community.spec
+  BOOST_VER: boost_1_77_0
+  BOOST_EXT: tar.bz2
+  BOOST_REL: "1.77.0"
+  RPMBUILD_TOP: /build/rpmbuild
+  BUILD_FLAVOR: oe2403
+  BOOST_CACHE_DIR: /var/cache/mysql-build
+  TARGET_NAME: "openEuler 24.03 LTS (x86_64)"
+  GLIBC_MAX: "2.38"
+  EXPECT_ARCH: "x86_64"
+  ARCH_HINT: "x86-64"
+
+jobs:
+  build:
+    name: rpmbuild (x86_64 / openEuler 24.03)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 180
+    container:
+      image: openeuler/openeuler:24.03-lts
+      options: --user root
+
+    steps:
+      - name: 环境自检
+        shell: bash
+        run: |
+          echo "arch      : $(uname -m)"
+          echo "cpu       : $(nproc)"
+          echo "disk      :"; df -h / /tmp | sed 's/^/            /'
+          echo "memory    :"; free -h 2>/dev/null | sed 's/^/            /' || :
+          cat /etc/openEuler-release 2>/dev/null || cat /etc/os-release
+
+      - name: 检出打包工程（trunk：workflow + spec + scripts）
+        uses: actions/checkout@v4
+        with:
+          path: pkg
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: 检出 MySQL 源码（8.0.37，来自上游仓库）
+        uses: actions/checkout@v4
+        with:
+          repository: mysql/mysql-server
+          ref: ${{ env.SRC_REF }}
+          path: src
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: 校验源码版本
+        shell: bash
+        run: |
+          set -e
+          grep -E '^MYSQL_VERSION_(MAJOR|MINOR|PATCH)=' src/MYSQL_VERSION | tee /tmp/version.txt
+          . /tmp/version.txt
+          FULL="${MYSQL_VERSION_MAJOR}.${MYSQL_VERSION_MINOR}.${MYSQL_VERSION_PATCH}"
+          echo "detected version: $FULL"
+          [ "$FULL" = "8.0.37" ] || { echo "::error::源码版本为 $FULL，本流水线只负责 8.0.37"; exit 1; }
+          if command -v git >/dev/null 2>&1; then
+            git -C src rev-parse HEAD | tee /tmp/src_commit.txt
+          else
+            echo "unknown (no git in image)" | tee /tmp/src_commit.txt
+          fi
+
+      - name: 释放磁盘（源码 .git 约 1GB）
+        shell: bash
+        run: rm -rf src/.git && df -h / | sed 's/^/          /'
+
+      - name: 缓存 Boost 与 dnf 包
+        uses: actions/cache@v4
+        with:
+          path: |
+            /var/cache/mysql-build
+            /var/cache/dnf
+          key: mysql80-oe2403-${{ runner.arch }}-boost1.77-dnf-v1
+
+      - name: 安装构建依赖
+        shell: bash
+        run: bash pkg/scripts/prepare-build-env-oe.sh
+
+      - name: 构建 RPM（source + binary + debuginfo）
+        shell: bash
+        env:
+          SRC_DIR: ${{ github.workspace }}/src
+          ALLOW_UNPACKAGED: ${{ github.event.inputs.allow_unpackaged == 'true' && '1' || '0' }}
+        run: bash pkg/scripts/build-rpm.sh
+
+      - name: 校验产物（架构 / 依赖 / debuginfo / systemd 单元）
+        shell: bash
+        run: bash pkg/scripts/verify-rpm.sh
+
+      - name: 归档构建日志
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-logs-mysql80-oe2403
+          path: ${{ env.RPMBUILD_TOP }}/build.log
+          if-no-files-found: warn
+          retention-days: 7
+
+      - name: 上传 RPM 产物
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: mysql-8.0.37-openeuler2403-x86_64-rpms
+          path: |
+            ${{ env.RPMBUILD_TOP }}/RPMS/**/*.rpm
+            ${{ env.RPMBUILD_TOP }}/SRPMS/*.rpm
+            ${{ env.RPMBUILD_TOP }}/SHA256SUMS
+            ${{ env.RPMBUILD_TOP }}/BUILD-INFO.txt
+          if-no-files-found: warn
+          retention-days: 30
+
+  release:
+    name: 发布 GitHub Release
+    needs: build
+    runs-on: ubuntu-24.04
+    if: github.event.inputs.upload_release == 'true'
+    steps:
+      - name: 下载全部产物
+        uses: actions/download-artifact@v4
+        with:
+          name: mysql-8.0.37-openeuler2403-x86_64-rpms
+          path: dist
+
+      - name: 生成 Release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ format('mysql-8.0.37-1.oe2403-{0}', github.run_number) }}
+        run: |
+          set -e
+          find dist -name '*.rpm' | sort
+          gh release create "$TAG" \
+            --repo "${{ github.repository }}" \
+            --title "MySQL 8.0.37 for openEuler 24.03 LTS (x86_64)" \
+            --notes-file dist/BUILD-INFO.txt \
+            $(find dist -name '*.rpm' -o -name 'SHA256SUMS' | sort) \
+          || gh release upload "$TAG" $(find dist -name '*.rpm' -o -name 'SHA256SUMS' | sort) --clobber
