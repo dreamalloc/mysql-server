@@ -332,6 +332,8 @@ fi
 %attr(644, root, root) %{_unitdir}/mysqld.service
 %attr(644, root, root) %{_unitdir}/mysqld@.service
 %attr(644, root, root) %{_prefix}/lib/tmpfiles.d/mysql.conf
+%attr(644, root, root) %{_mandir}/man8/*.8*
+%attr(644, root, root) %{_datadir}/mysql-*/mysql-log-rotate
 
 %attr(644, root, root) %config(noreplace,missingok) %{_sysconfdir}/logrotate.d/mysql
 %dir %attr(751, mysql, mysql) %{mysqldatadir}
