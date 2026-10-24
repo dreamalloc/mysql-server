@@ -7,7 +7,9 @@
 #      因此不需要 5.7 那个 sed 补丁
 #   3. 客户端库是 libmysqlclient.so.21（5.7 是 .20）
 #   4. 初始化靠 mysqld --initialize，没有 mysql_install_db
-#   5. 不单独出 test 子包：8.0 的测试插件与正式插件同目录，用通配符打包会冲突，
+#   5. EL8 上 CMake 默认强制 gcc-toolset-12，但用它会引入 GLIBCXX_3.4.29+ 依赖，
+#      麒麟的 libstdc++ 不提供 → 显式指定系统 gcc/g++（CMakeLists 允许这么做）
+#   6. 不单独出 test 子包：8.0 的测试插件与正式插件同目录，用通配符打包会冲突，
 #      这里直接 -DINSTALL_MYSQLTESTDIR= 不安装测试套件
 # ---------------------------------------------------------------------------
 
@@ -131,6 +133,8 @@ cmake .. \
   -DBUILD_CONFIG=mysql_release \
   -DINSTALL_LAYOUT=RPM \
   -DCMAKE_BUILD_TYPE=RelWithDebInfo \
+  -DCMAKE_C_COMPILER=%{_bindir}/gcc \
+  -DCMAKE_CXX_COMPILER=%{_bindir}/g++ \
   -DCMAKE_C_FLAGS="%{optflags} -fno-omit-frame-pointer %{extra_warn}" \
   -DCMAKE_CXX_FLAGS="%{optflags} -fno-omit-frame-pointer %{extra_warn}" \
   -DWITH_BOOST=%{_builddir}/boost \
