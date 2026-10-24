@@ -7,7 +7,8 @@ name: "Build MySQL 8.0.37 RPM (openEuler 24.03 LTS / x86_64)"
 #   2. 版本文件是 MYSQL_VERSION（5.7 是 VERSION）
 #   3. Boost 1.77.0 / .tar.bz2（5.7 是 1.59.0 / .tar.gz）
 #   4. spec 用 mysql80-community.spec；systemd 单元是 Type=notify，无需补丁
-#   5. OpenSSL 3.0 与 8.0 的 ssl.cmake 兼容性不佳，统一用自带 OpenSSL（bundled）
+#   5. 8.0 的 WITH_SSL 没有 bundled 档位（只有 opensslN / yes / 路径），
+#      直接用系统 OpenSSL 3.0 —— 8.0.30 起已支持
 # ─────────────────────────────────────────────────────────────────────────────
 
 on:
@@ -50,7 +51,6 @@ env:
   BOOST_EXT: tar.bz2
   BOOST_REL: "1.77.0"
   RPMBUILD_TOP: /build/rpmbuild
-  WITH_SSL: bundled
   BUILD_FLAVOR: oe2403
   BOOST_CACHE_DIR: /var/cache/mysql-build
   TARGET_NAME: "openEuler 24.03 LTS (x86_64)"

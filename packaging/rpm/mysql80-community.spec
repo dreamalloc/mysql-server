@@ -282,7 +282,6 @@ fi
 %attr(755, root, root) %{_sbindir}/mysqld
 %attr(755, root, root) %{_bindir}/mysqld_pre_systemd
 %attr(755, root, root) %{_bindir}/mysqld_safe
-%attr(755, root, root) %{_bindir}/mysqld_multi
 %attr(755, root, root) %{_bindir}/innochecksum
 %attr(755, root, root) %{_bindir}/ibd2sdi
 %attr(755, root, root) %{_bindir}/my_print_defaults
@@ -308,8 +307,6 @@ fi
 %attr(644, root, root) %{_libdir}/mysql/plugin/*.ini
 
 %{_datadir}/mysql/*.sql
-%attr(644, root, root) %{_datadir}/mysql/mysql-log-rotate
-%attr(644, root, root) %{_datadir}/mysql/magic
 %attr(644, root, root) %{_datadir}/mysql/dictionary.txt
 
 %attr(644, root, root) %{_unitdir}/mysqld.service
