@@ -14,14 +14,12 @@ BOOST_TARBALL="${BOOST_CACHE_DIR:-/var/cache/mysql-build}/${BOOST_VER}.tar.gz"
 
 echo "==> 系统信息"
 cat /etc/openEuler-release 2>/dev/null || cat /etc/os-release | sed -n '1,3p'
-gcc --version | sed -n '1p'
-ldd --version | sed -n '1p'
 
 echo "==> 安装构建依赖"
 dnf -y makecache >/dev/null 2>&1 || :
 
 # 核心依赖：缺任何一个都直接失败
-dnf -y install \
+dnf -y --setopt=keepcache=1 install \
     cmake gcc gcc-c++ make \
     ncurses-devel openssl-devel zlib-devel libaio-devel libtirpc-devel numactl-devel \
     bison \
@@ -48,8 +46,14 @@ else
     echo "       可尝试: dnf --enablerepo=everything install -y rpcgen"
 fi
 
-dnf clean all >/dev/null 2>&1 || :
-rm -rf /var/cache/dnf
+# 保留 /var/cache/dnf 供 actions/cache 复用，只清元数据以外的东西
+dnf clean metadata >/dev/null 2>&1 || :
+
+echo "==> 组件版本"
+gcc --version | sed -n '1p'
+cmake --version | sed -n '1p'
+ldd --version | sed -n '1p'
+rpm --version
 
 echo "==> 准备 Boost ${BOOST_VER}"
 mkdir -p "$(dirname "$BOOST_TARBALL")"
