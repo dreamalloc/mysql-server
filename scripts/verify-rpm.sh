@@ -75,7 +75,9 @@ fi
 
 echo
 echo "=================== 4. systemd 单元 ==================="
-SRV="$TOP/$(find RPMS -name 'mysql-community-server-*.rpm' -not -name '*debug*' | sed -n '1p')"
+# 包名前缀随版本变化（mysql-community / mysql80-community），用通配避免写死
+SRV="$TOP/$(find RPMS -name '*-server-*.rpm' -not -name '*debug*' -not -name '*.src.rpm' | sed -n '1p')"
+[ -n "$SRV" ] && [ "$SRV" != "$TOP/" ] || { echo "!! 找不到 server 主包"; exit 1; }
 mkdir -p "$WORK/u"
 ( cd "$WORK" && rpm2cpio "$SRV" | cpio -idm --quiet 2>/dev/null ) || true
 for u in mysqld.service 'mysqld@.service'; do
