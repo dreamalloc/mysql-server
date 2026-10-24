@@ -59,5 +59,5 @@ fi
 [ -s "$BOOST_TARBALL" ] || { echo "!! Boost 下载失败"; exit 1; }
 
 # 校验压缩包完整性（截断的包会让 cmake 在半小时后才报错）
-tar -tzf "$BOOST_TARBALL" >/dev/null
+tar -tf "$BOOST_TARBALL" >/dev/null
 echo "    OK: $(du -h "$BOOST_TARBALL" | cut -f1)  $BOOST_TARBALL"

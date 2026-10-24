@@ -74,5 +74,5 @@ if [ ! -s "$BOOST_TARBALL" ]; then
     done
 fi
 [ -s "$BOOST_TARBALL" ] || { echo "!! Boost 下载失败"; exit 1; }
-tar -tzf "$BOOST_TARBALL" >/dev/null
+tar -tf "$BOOST_TARBALL" >/dev/null
 echo "    OK: $(du -h "$BOOST_TARBALL" | cut -f1)  $BOOST_TARBALL"
