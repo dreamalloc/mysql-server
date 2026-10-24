@@ -18,9 +18,10 @@ import urllib.error
 API = "https://api.github.com"
 FILES = [
     ".github/workflows/build-mysql57-kylin-arm64.yml",
-    ".github/workflows/spec-check.yml",
+    ".github/workflows/build-mysql57-openeuler2403-x86_64.yml",
     "packaging/kylin/mysql-community.spec",
     "scripts/prepare-build-env.sh",
+    "scripts/prepare-build-env-oe.sh",
     "scripts/build-rpm.sh",
     "scripts/verify-rpm.sh",
     "scripts/push-files-via-api.sh",

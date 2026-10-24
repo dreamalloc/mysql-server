@@ -7,6 +7,8 @@ set -eu
 if [ -n "${BASH_VERSION:-}" ]; then set +o pipefail; fi  # GitHub 步骤会带 -o pipefail 并被继承
 
 TOP="${RPMBUILD_TOP:-/build/rpmbuild}"
+TARGET_NAME="${TARGET_NAME:-Kylin V10 SP3 (aarch64)}"
+GLIBC_MAX="${GLIBC_MAX:-2.28}"
 SRC_NAME="${SRC_NAME:-mysql-5.7.44}"
 WORK="$(mktemp -d)"
 trap 'rm -rf "$WORK"' EXIT
@@ -58,10 +60,10 @@ for f in $RPMS; do
         MAXV="$v"
     fi
 done
-echo "    最高依赖符号版本: ${MAXV:-未知}  (麒麟 V10 SP3 提供到 2.28)"
+echo "    最高依赖符号版本: ${MAXV:-未知}  (目标平台 ${TARGET_NAME} 上限 ${GLIBC_MAX})"
 # 取 MAXV 与 2.28 的较大者：若较大者不是 2.28，说明依赖了更高的符号版本
-if [ -n "$MAXV" ] && [ "$(printf '%s\n2.28\n' "$MAXV" | sort -V | tail -1)" != "2.28" ]; then
-    echo "!! 产物依赖 GLIBC_${MAXV}，高于麒麟 V10 SP3 的 2.28，装不上"
+if [ -n "$MAXV" ] && [ "$(printf '%s\n%s\n' "$MAXV" "$GLIBC_MAX" | sort -V | tail -1)" != "$GLIBC_MAX" ]; then
+    echo "!! 产物依赖 GLIBC_${MAXV}，高于 ${TARGET_NAME} 的 ${GLIBC_MAX}，装不上"
     exit 1
 fi
 
@@ -106,7 +108,7 @@ echo "=================== 7. 生成校验和与构建信息 ==========="
 sed 's/^/    /' SHA256SUMS | sed -n '1,20p'
 
 {
-    echo "MySQL ${SRC_NAME#mysql-} RPM build for Kylin V10 SP3 (aarch64)"
+    echo "MySQL ${SRC_NAME#mysql-} RPM build for ${TARGET_NAME}"
     echo "=============================================================="
     echo "build time   : $(date -u '+%Y-%m-%d %H:%M:%S UTC')"
     echo "source repo  : ${GITHUB_REPOSITORY:-dreamalloc/mysql-server}"
@@ -125,7 +127,7 @@ sed 's/^/    /' SHA256SUMS | sed -n '1,20p'
         printf '  %-64s %8s\n' "$(basename "$f")" "$(du -h "$f" | cut -f1)"
     done
     echo
-    echo "Install on Kylin V10 SP3 (aarch64)"
+    echo "Install on ${TARGET_NAME}"
     echo "----------------------------------"
     echo "  tar xf mysql-5.7.44-kylin10-aarch64-rpm.tar.gz"
     echo "  dnf install ./*.rpm            # 或 rpm -Uvh ./*.rpm"
