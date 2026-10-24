@@ -22,7 +22,7 @@ dnf -y makecache >/dev/null 2>&1 || :
 dnf -y --setopt=keepcache=1 install \
     cmake gcc gcc-c++ make \
     ncurses-devel openssl-devel zlib-devel libaio-devel libtirpc-devel numactl-devel \
-    bison \
+    bison m4 \
     perl perl-Getopt-Long perl-Data-Dumper \
     systemd-devel \
     rpm-build \

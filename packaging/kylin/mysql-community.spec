@@ -51,7 +51,7 @@ BuildRequires:  libaio-devel
 BuildRequires:  libtirpc-devel
 BuildRequires:  rpcgen
 BuildRequires:  numactl-devel
-BuildRequires:  bison
+BuildRequires:  bison m4
 BuildRequires:  perl
 BuildRequires:  perl(Getopt::Long) perl(Data::Dumper)
 BuildRequires:  systemd-devel
