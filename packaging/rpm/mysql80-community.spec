@@ -95,7 +95,7 @@ Summary:        MySQL 8.0.37 数据库服务端
 Requires:       %{name}-client%{?_isa} = %{version}-%{release}
 Requires:       %{name}-common%{?_isa} = %{version}-%{release}
 Requires:       coreutils grep procps-ng shadow-utils net-tools
-Requires:       numactl-libs zlib
+Requires:       numactl-libs
 Requires(pre):  shadow-utils
 Requires(post): systemd
 Requires(preun): systemd
@@ -140,7 +140,7 @@ cmake .. \
   -DWITH_BOOST=%{_builddir}/boost \
   -DWITH_SYSTEMD=1 \
   -DWITH_SSL=%{?with_ssl}%{!?with_ssl:system} \
-  -DWITH_ZLIB=system \
+  -DWITH_ZLIB=bundled \
   -DWITH_NUMA=1 \
   -DWITH_LIBEVENT=bundled \
   -DWITH_LZ4=bundled \
