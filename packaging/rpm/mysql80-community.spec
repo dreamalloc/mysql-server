@@ -27,7 +27,7 @@
 # 8.0 的 CMake 会给编译加 -fdebug-prefix-map=...=. ，DWARF 里是相对路径，
 # rpm 的 find-debuginfo 无法据此收集源码 → debugsource 包必为空，直接关掉。
 # 符号（debuginfo）不受影响。
-# 注意：必须用 %undefine —— redhat-rpm-config 里是 %{?_debugsource_packages}
+# 注意：必须用 %%undefine —— redhat-rpm-config 里是 %%{?_debugsource_packages}
 # 只判断「是否定义」，写 0 无效。
 %undefine _debugsource_packages
 
@@ -203,7 +203,7 @@ rm -f  %{buildroot}%{_mandir}/man1/mysqld_multi.1*
 rm -f  %{buildroot}%{_mandir}/man1/ndb*.1*
 rm -rf %{buildroot}%{_datadir}/mysql-test
 
-# 供 %files 校准用
+# 供 %%files 校准用
 find %{buildroot} -type f -o -type l | sed "s|%{buildroot}||" | sort > %{_builddir}/buildroot-files.txt
 
 # ---------------------------------------------------------------------------
