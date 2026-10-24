@@ -24,6 +24,11 @@
 # debuginfo 体积大，提高压缩比
 %global _binary_payload w2.xzdio
 
+# 8.0 的 CMake 会给编译加 -fdebug-prefix-map=...=. ，DWARF 里是相对路径，
+# rpm 的 find-debuginfo 无法据此收集源码 → debugsource 包必为空，直接关掉。
+# 符号（debuginfo）不受影响。
+%global _debugsource_packages 0
+
 # openEuler 24.03 (gcc 12)：新版告警抑制
 %if 0%{?oe2403}
 %global extra_warn -Wno-free-nonheap-object -Wno-array-bounds -Wno-stringop-overflow -Wno-maybe-uninitialized
