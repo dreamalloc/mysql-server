@@ -56,7 +56,11 @@ BuildRequires:  perl
 BuildRequires:  perl(Getopt::Long) perl(Data::Dumper)
 BuildRequires:  systemd-devel
 BuildRequires:  pkgconfig(systemd)
+%if 0%{?oe2403}
+BuildRequires:  rpm-build openEuler-rpm-config
+%else
 BuildRequires:  rpm-build redhat-rpm-config
+%endif
 BuildRequires:  findutils which tar gzip
 
 %description

@@ -27,8 +27,18 @@ dnf -y install \
     bison \
     perl perl-Getopt-Long perl-Data-Dumper \
     systemd-devel \
-    rpm-build redhat-rpm-config \
+    rpm-build \
     tar gzip curl which findutils diffutils file cpio procps-ng shadow-utils
+
+# rpm 宏包：openEuler 叫 openEuler-rpm-config（提供 %systemd_post、brp-* 等）
+if dnf -y install openEuler-rpm-config >/dev/null 2>&1; then
+    echo "    rpm-config: openEuler-rpm-config"
+else
+    dnf -y install redhat-rpm-config >/dev/null 2>&1 \
+        && echo "    rpm-config: redhat-rpm-config" \
+        || echo "    !! 未找到 rpm 宏包，%systemd_post 可能不可用"
+fi
+dnf -y install systemd-rpm-macros >/dev/null 2>&1 || echo "    (systemd-rpm-macros 不可用，尝试用 systemd-devel 自带宏)"
 
 # 可选依赖：缺了会导致 group_replication 配置阶段报 "Could not find rpcgen"
 if dnf -y install rpcgen >/dev/null 2>&1; then
