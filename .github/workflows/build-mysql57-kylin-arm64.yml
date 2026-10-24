@@ -1,0 +1,182 @@
+name: "Build MySQL 5.7.44 RPM (Kylin V10 SP3 / aarch64)"
+
+# ─────────────────────────────────────────────────────────────────────────────
+# 设计说明（务必先读）
+#
+# 1. 本工作流文件位于默认分支 trunk。MySQL 5.7 分支本身没有 .github/workflows
+#    （上游仓库 5.7 分支不含 CI 配置），因此把工作流放在 trunk，构建时再通过
+#    actions/checkout 的 ref 参数检出 mysql-5.7.44 源码。这样可以做到：
+#      · 不向 5.7 分支提交任何 CI 文件；
+#      · 打包脚本（spec）与源码版本解耦，改 spec 不必动 5.7 分支。
+#
+# 2. 构建机必须是原生 aarch64：MySQL 5.7 不支持交叉编译（cmake 里大量
+#    try_run + 汇编探测）。使用 GitHub 托管 ARM64 runner ubuntu-24.04-arm。
+#
+# 3. runner 内跑 rockylinux:8 容器而不是直接在 ubuntu-24.04 上编译：
+#    ubuntu-24.04 的 glibc 2.39 会让产物依赖 GLIBC_2.34+，装不上麒麟 V10 SP3。
+#    rockylinux:8 = glibc 2.28 / rpm 4.14 / gcc 8.5，与麒麟 V10 SP3 同代，
+#    ABI 完全对齐。
+# ─────────────────────────────────────────────────────────────────────────────
+
+on:
+  workflow_dispatch:
+    inputs:
+      source_ref:
+        description: "MySQL 源码 ref（tag / 分支 / commit）"
+        required: true
+        default: "mysql-5.7.44"
+        type: string
+      dist_tag:
+        description: "Release 后缀，写入 Release: 1<dist_tag>"
+        required: true
+        default: ".ky10"
+        type: string
+      upload_release:
+        description: "构建成功后创建 GitHub Release"
+        required: true
+        default: true
+        type: boolean
+      allow_unpackaged:
+        description: "调试用：容忍未打包文件（仅用于首次校准 %files，禁止用于发布）"
+        required: true
+        default: false
+        type: boolean
+  push:
+    tags:
+      - "v5.7.44-kylin*"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: build-mysql57-kylin-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  # 源码 ref：手动触发用输入值，tag 触发时用固定 tag
+  SRC_REF: ${{ github.event.inputs.source_ref || 'mysql-5.7.44' }}
+  DIST_TAG: ${{ github.event.inputs.dist_tag || '.ky10' }}
+  SRC_NAME: mysql-5.7.44
+  RPMBUILD_TOP: /build/rpmbuild
+  BOOST_CACHE_DIR: /var/cache/mysql-build
+
+jobs:
+  # ───────────────────────────────────────────────────────────────────────────
+  build:
+    name: rpmbuild (aarch64 / rockylinux8)
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 180
+    container:
+      image: rockylinux:8
+      options: --user root
+
+    steps:
+      - name: 环境自检
+        run: |
+          echo "arch      : $(uname -m)"
+          echo "cpu       : $(nproc)"
+          echo "disk      :"; df -h / /tmp | sed 's/^/            /'
+          echo "memory    :"; free -h | sed 's/^/            /'
+          cat /etc/rocky-release || cat /etc/os-release
+
+      - name: 检出打包工程（trunk：workflow + spec + scripts）
+        uses: actions/checkout@v4
+        with:
+          path: pkg
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: 检出 MySQL 源码（5.7.44）
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ github.repository }}
+          ref: ${{ env.SRC_REF }}
+          path: src
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: 校验源码版本
+        run: |
+          set -e
+          grep -E '^MYSQL_VERSION_(MAJOR|MINOR|PATCH)=' src/VERSION | tee /tmp/version.txt
+          . /tmp/version.txt
+          FULL="${MYSQL_VERSION_MAJOR}.${MYSQL_VERSION_MINOR}.${MYSQL_VERSION_PATCH}"
+          echo "detected version: $FULL"
+          [ "$FULL" = "5.7.44" ] || { echo "::error::源码版本为 $FULL，本流水线只负责 5.7.44"; exit 1; }
+          # 记录 commit，用于发布说明与可复现性
+          git -C src rev-parse HEAD | tee /tmp/src_commit.txt
+
+      - name: 释放磁盘（源码 .git 约 1GB）
+        run: rm -rf src/.git && df -h / | sed 's/^/          /'
+
+      - name: 缓存 Boost 1.59.0
+        uses: actions/cache@v4
+        with:
+          path: /var/cache/mysql-build
+          key: mysql57-kylin-${{ runner.arch }}-boost1.59-v2
+
+      - name: 安装构建依赖
+        shell: bash
+        run: bash pkg/scripts/prepare-build-env.sh
+
+      - name: 构建 RPM（source + binary + debuginfo）
+        env:
+          SRC_DIR: ${{ github.workspace }}/src
+          ALLOW_UNPACKAGED: ${{ github.event.inputs.allow_unpackaged == 'true' && '1' || '0' }}
+        shell: bash
+        run: bash pkg/scripts/build-rpm.sh
+
+      - name: 校验产物（架构 / 依赖 / debuginfo / systemd 单元）
+        shell: bash
+        run: bash pkg/scripts/verify-rpm.sh
+
+      - name: 归档构建日志
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-logs
+          path: ${{ env.RPMBUILD_TOP }}/build.log
+          if-no-files-found: warn
+          retention-days: 7
+
+      - name: 上传 RPM 产物
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: mysql-5.7.44-kylin-v10-sp3-aarch64-rpms
+          path: |
+            ${{ env.RPMBUILD_TOP }}/RPMS/**/*.rpm
+            ${{ env.RPMBUILD_TOP }}/SRPMS/*.rpm
+            ${{ env.RPMBUILD_TOP }}/SHA256SUMS
+            ${{ env.RPMBUILD_TOP }}/BUILD-INFO.txt
+          if-no-files-found: error
+          retention-days: 30
+
+  # ───────────────────────────────────────────────────────────────────────────
+  release:
+    name: 发布 GitHub Release
+    needs: build
+    runs-on: ubuntu-24.04
+    if: |
+      github.event_name == 'push' ||
+      github.event.inputs.upload_release == 'true'
+    steps:
+      - name: 下载全部产物
+        uses: actions/download-artifact@v4
+        with:
+          name: mysql-5.7.44-kylin-v10-sp3-aarch64-rpms
+          path: dist
+
+      - name: 生成 Release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ github.event_name == 'push' && github.ref_name || format('v5.7.44-kylin-{0}', github.run_number) }}
+        run: |
+          set -e
+          find dist -name '*.rpm' | sort
+          gh release create "$TAG" \
+            --repo "${{ github.repository }}" \
+            --title "MySQL 5.7.44 for Kylin V10 SP3 (aarch64)" \
+            --notes-file dist/BUILD-INFO.txt \
+            $(find dist -name '*.rpm' -o -name 'SHA256SUMS' | sort) \
+          || gh release upload "$TAG" $(find dist -name '*.rpm' -o -name 'SHA256SUMS' | sort) --clobber

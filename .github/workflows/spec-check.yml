@@ -1,0 +1,46 @@
+name: "Spec Check"
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [trunk]
+    paths:
+      - "packaging/kylin/**"
+      - ".github/workflows/spec-check.yml"
+
+jobs:
+  check:
+    name: rpmspec parse (rockylinux8 / aarch64)
+    runs-on: ubuntu-24.04-arm
+    container:
+      image: rockylinux:8
+      options: --user root
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: 安装最小依赖
+        shell: bash
+        run: dnf -y install rpm-build >/dev/null 2>&1 && rpm --version
+
+      - name: 容器内看到的文件
+        shell: bash
+        run: |
+          F=packaging/kylin/mysql-community.spec
+          echo "bytes=$(wc -c < $F)  lines=$(wc -l < $F)"
+          echo "--- 1..32 行 ---"
+          awk 'NR<=32 {printf "%3d| %s\n", NR, $0}' "$F"
+          echo "--- CR 检查 ---"
+          if LC_ALL=C grep -q "$(printf '\r')" "$F"; then echo "CRLF FOUND"; else echo "no CR"; fi
+
+      - name: rpmspec 解析
+        shell: bash
+        run: |
+          F=packaging/kylin/mysql-community.spec
+          set +e
+          rpmspec -q --qf '%{NAME}-%{VERSION}-%{RELEASE}.%{ARCH}\n' "$F" > /tmp/q.txt 2>/tmp/q.err
+          echo "rc=$?"
+          echo "--- stdout ---"; sed -n '1,20p' /tmp/q.txt
+          echo "--- stderr ---"; sed -n '1,20p' /tmp/q.err
+          echo "=== -P 展开前 25 行 ==="
+          rpmspec -P "$F" > /tmp/p.txt 2>&1
+          sed -n '1,25p' /tmp/p.txt
