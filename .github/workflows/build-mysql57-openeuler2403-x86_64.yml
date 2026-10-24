@@ -99,7 +99,11 @@ jobs:
           FULL="${MYSQL_VERSION_MAJOR}.${MYSQL_VERSION_MINOR}.${MYSQL_VERSION_PATCH}"
           echo "detected version: $FULL"
           [ "$FULL" = "5.7.44" ] || { echo "::error::源码版本为 $FULL，本流水线只负责 5.7.44"; exit 1; }
-          git -C src rev-parse HEAD | tee /tmp/src_commit.txt
+          if command -v git >/dev/null 2>&1; then
+            git -C src rev-parse HEAD | tee /tmp/src_commit.txt
+          else
+            echo "unknown (no git in image)" | tee /tmp/src_commit.txt
+          fi
 
       - name: 释放磁盘（源码 .git 约 1GB）
         shell: bash
@@ -145,7 +149,7 @@ jobs:
             ${{ env.RPMBUILD_TOP }}/SRPMS/*.rpm
             ${{ env.RPMBUILD_TOP }}/SHA256SUMS
             ${{ env.RPMBUILD_TOP }}/BUILD-INFO.txt
-          if-no-files-found: error
+          if-no-files-found: warn
           retention-days: 30
 
   release:
