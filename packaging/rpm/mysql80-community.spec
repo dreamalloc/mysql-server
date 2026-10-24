@@ -27,7 +27,9 @@
 # 8.0 的 CMake 会给编译加 -fdebug-prefix-map=...=. ，DWARF 里是相对路径，
 # rpm 的 find-debuginfo 无法据此收集源码 → debugsource 包必为空，直接关掉。
 # 符号（debuginfo）不受影响。
-%global _debugsource_packages 0
+# 注意：必须用 %undefine —— redhat-rpm-config 里是 %{?_debugsource_packages}
+# 只判断「是否定义」，写 0 无效。
+%undefine _debugsource_packages
 
 # openEuler 24.03 (gcc 12)：新版告警抑制
 %if 0%{?oe2403}
