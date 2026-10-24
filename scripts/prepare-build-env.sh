@@ -7,8 +7,10 @@
 set -eu
 if [ -n "${BASH_VERSION:-}" ]; then set +o pipefail; fi  # GitHub 步骤会带 -o pipefail 并被继承
 
-BOOST_VER="boost_1_59_0"
-BOOST_TARBALL="${BOOST_CACHE_DIR:-/var/cache/mysql-build}/${BOOST_VER}.tar.gz"
+BOOST_VER="${BOOST_VER:-boost_1_59_0}"
+BOOST_EXT="${BOOST_EXT:-tar.gz}"
+BOOST_REL="${BOOST_REL:-1.59.0}"
+BOOST_TARBALL="${BOOST_CACHE_DIR:-/var/cache/mysql-build}/${BOOST_VER}.${BOOST_EXT}"
 
 echo "==> 启用 CRB/PowerTools（rpcgen 只在这个仓库里）"
 dnf -y install dnf-plugins-core >/dev/null 2>&1 || :
@@ -41,9 +43,9 @@ mkdir -p "$(dirname "$BOOST_TARBALL")"
 
 if [ ! -s "$BOOST_TARBALL" ]; then
     for url in \
-        "https://archives.boost.io/release/1.59.0/source/${BOOST_VER}.tar.gz" \
-        "https://downloads.sourceforge.net/boost/${BOOST_VER}.tar.gz" \
-        "https://sourceforge.net/projects/boost/files/boost/1.59.0/${BOOST_VER}.tar.gz/download"
+        "https://archives.boost.io/release/${BOOST_REL}/source/${BOOST_VER}.${BOOST_EXT}" \
+        "https://downloads.sourceforge.net/boost/${BOOST_VER}.${BOOST_EXT}" \
+        "https://sourceforge.net/projects/boost/files/boost/${BOOST_REL}/${BOOST_VER}.${BOOST_EXT}/download"
     do
         echo "    尝试: $url"
         if curl -fL --retry 3 --retry-delay 5 --connect-timeout 20 \

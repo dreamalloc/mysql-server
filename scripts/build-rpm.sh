@@ -6,14 +6,17 @@
 set -eu
 if [ -n "${BASH_VERSION:-}" ]; then set +o pipefail; fi  # GitHub 步骤会带 -o pipefail 并被继承
 
-SRC_DIR="${SRC_DIR:?需要指定 SRC_DIR（MySQL 5.7.44 源码 checkout 路径）}"
+SRC_DIR="${SRC_DIR:?需要指定 SRC_DIR（MySQL 源码 checkout 路径）}"
 SRC_NAME="${SRC_NAME:-mysql-5.7.44}"
 DIST_TAG="${DIST_TAG:-.ky10}"
 TOP="${RPMBUILD_TOP:-/build/rpmbuild}"
-BOOST_TARBALL="${BOOST_CACHE_DIR:-/var/cache/mysql-build}/boost_1_59_0.tar.gz"
+BOOST_VER="${BOOST_VER:-boost_1_59_0}"
+BOOST_EXT="${BOOST_EXT:-tar.gz}"
+BOOST_TARBALL="${BOOST_CACHE_DIR:-/var/cache/mysql-build}/${BOOST_VER}.${BOOST_EXT}"
 
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-SPEC="${REPO_ROOT}/packaging/rpm/mysql-community.spec"
+SPEC_FILE="${SPEC_FILE:-mysql-community.spec}"
+SPEC="${REPO_ROOT}/packaging/rpm/${SPEC_FILE}"
 
 [ -f "$SPEC" ]              || { echo "!! 找不到 spec: $SPEC"; exit 1; }
 [ -d "$SRC_DIR" ]           || { echo "!! 找不到源码目录: $SRC_DIR"; exit 1; }
@@ -32,7 +35,7 @@ tar -tzf "${TOP}/SOURCES/${SRC_NAME}.tar.gz" > "${TOP}/tar.list"
 sed -n '1,3p' "${TOP}/tar.list" | sed 's/^/    /'
 echo "    entries: $(wc -l < "${TOP}/tar.list"), size: $(du -h "${TOP}/SOURCES/${SRC_NAME}.tar.gz" | cut -f1)"
 
-cp -f "$BOOST_TARBALL" "${TOP}/SOURCES/boost_1_59_0.tar.gz"
+cp -f "$BOOST_TARBALL" "${TOP}/SOURCES/${BOOST_VER}.${BOOST_EXT}"
 cp -f "$SPEC"          "${TOP}/SPECS/"
 
 echo "==> 校验 spec 可解析"
