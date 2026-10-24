@@ -154,6 +154,8 @@ cmake .. \
   -DWITH_ZSTD=bundled \
   -DWITH_PROTOBUF=bundled \
   -DWITH_EDITLINE=bundled \
+  -DWITH_ROUTER=OFF \
+  -DWITH_UNIT_TESTS=OFF \
   -DENABLED_LOCAL_INFILE=0 \
   -DINSTALL_LIBDIR="%{_lib}/mysql" \
   -DINSTALL_PLUGINDIR="%{_lib}/mysql/plugin" \
@@ -202,6 +204,16 @@ rm -f  %{buildroot}%{_mandir}/man1/mysqld_safe.1*
 rm -f  %{buildroot}%{_mandir}/man1/mysqld_multi.1*
 rm -f  %{buildroot}%{_mandir}/man1/ndb*.1*
 rm -rf %{buildroot}%{_datadir}/mysql-test
+rm -f  %{buildroot}%{_bindir}/comp_err \
+       %{buildroot}%{_bindir}/mysqltest \
+       %{buildroot}%{_bindir}/mysqltest_safe_process \
+       %{buildroot}%{_bindir}/mysqlxtest \
+       %{buildroot}%{_bindir}/mysql_client_test \
+       %{buildroot}%{_bindir}/mysql_keyring_encryption_test
+rm -rf %{buildroot}%{_libdir}/mysqlrouter \
+       %{buildroot}%{_bindir}/mysqlrouter* \
+       %{buildroot}%{_unitdir}/mysqlrouter.service \
+       %{buildroot}%{_prefix}/lib/tmpfiles.d/mysqlrouter.conf
 
 # 供 %%files 校准用
 find %{buildroot} -type f -o -type l | sed "s|%{buildroot}||" | sort > %{_builddir}/buildroot-files.txt
@@ -281,6 +293,7 @@ fi
 %attr(755, root, root) %{_bindir}/mysqlslap
 %attr(755, root, root) %{_bindir}/mysql_config_editor
 %attr(755, root, root) %{_bindir}/mysql_migrate_keyring
+%attr(644, root, root) %{_mandir}/man1/*.1*
 
 %files server
 %config(noreplace) %{_sysconfdir}/my.cnf
