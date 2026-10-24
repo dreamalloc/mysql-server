@@ -38,7 +38,7 @@ cmake --version | sed -n '1,1p'
 ldd --version | sed -n '1,1p'
 rpm --version
 
-echo "==> 准备 Boost ${BOOST_VER}（MySQL 5.7 强依赖，离线预置以规避 sourceforge 抖动）"
+echo "==> 准备 Boost ${BOOST_VER}（离线预置，规避 sourceforge 抖动）"
 mkdir -p "$(dirname "$BOOST_TARBALL")"
 
 if [ ! -s "$BOOST_TARBALL" ]; then

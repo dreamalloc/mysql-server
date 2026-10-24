@@ -17,6 +17,7 @@ BOOST_TARBALL="${BOOST_CACHE_DIR:-/var/cache/mysql-build}/${BOOST_VER}.${BOOST_E
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 SPEC_FILE="${SPEC_FILE:-mysql-community.spec}"
 SPEC="${REPO_ROOT}/packaging/rpm/${SPEC_FILE}"
+SPEC_NAME="$(basename "${SPEC}")"
 
 [ -f "$SPEC" ]              || { echo "!! 找不到 spec: $SPEC"; exit 1; }
 [ -d "$SRC_DIR" ]           || { echo "!! 找不到源码目录: $SRC_DIR"; exit 1; }
@@ -36,16 +37,16 @@ sed -n '1,3p' "${TOP}/tar.list" | sed 's/^/    /'
 echo "    entries: $(wc -l < "${TOP}/tar.list"), size: $(du -h "${TOP}/SOURCES/${SRC_NAME}.tar.gz" | cut -f1)"
 
 cp -f "$BOOST_TARBALL" "${TOP}/SOURCES/${BOOST_VER}.${BOOST_EXT}"
-cp -f "$SPEC"          "${TOP}/SPECS/"
+cp -f "$SPEC"          "${TOP}/SPECS/${SPEC_NAME}"
 
 echo "==> 校验 spec 可解析"
-rpmspec -q --qf '    %{NAME}-%{VERSION}-%{RELEASE}.%{ARCH}\n' "${TOP}/SPECS/mysql-community.spec"
+rpmspec -q --qf '    %{NAME}-%{VERSION}-%{RELEASE}.%{ARCH}\n' "${TOP}/SPECS/${SPEC_NAME}"
 
 JOBS="$(nproc)"
 echo "==> rpmbuild -ba  (dist=${DIST_TAG}, -j${JOBS})"
 
 # 用 set -- 组装参数，避免引号/空值被词分割搞坏
-set -- -ba "${TOP}/SPECS/mysql-community.spec" \
+set -- -ba "${TOP}/SPECS/${SPEC_NAME}" \
     --define "_topdir ${TOP}" \
     --define "dist ${DIST_TAG}" \
     --define "_smp_mflags -j${JOBS}"
