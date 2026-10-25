@@ -15,14 +15,16 @@ jobs:
       image: hxsoong/kylin:v10-sp3
       options: --user root
     steps:
-      - name: 工具链可选项
+      - name: protobuf 可用性
         shell: bash
         run: |
           set +e
-          echo "--- 默认工具链 ---"; gcc --version | head -1; g++ --version | head -1
-          echo "--- gcc-toolset 可用性 ---"
-          dnf list --available 'gcc-toolset*' 2>/dev/null | tail -n +1 | head -20
-          echo "--- devtoolset 可用性 ---"
-          dnf list --available 'devtoolset*' 2>/dev/null | head -10
-          echo "--- 其他更新版 gcc ---"
-          dnf list --available 'gcc*' 2>/dev/null | grep -E "^gcc" | head -10
+          echo "--- 可用 protobuf*n ---"
+          dnf list --available 'protobuf*' 2>/dev/null | tail -12
+          echo "--- 已装 ---"; rpm -qa 'protobuf*' | head
+          echo "--- 装 devel + compiler ---"
+          dnf -y install protobuf-devel protobuf-compiler; echo "exit=$?"
+          rpm -q protobuf-devel protobuf-compiler
+          echo "--- 版本 ---"
+          protoc --version 2>/dev/null || echo "(no protoc)"
+          grep -h "GOOGLE_PROTOBUF_VERSION " /usr/include/google/protobuf/stubs/common.h 2>/dev/null | head -2
