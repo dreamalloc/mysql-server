@@ -37,11 +37,38 @@ fi
 echo "==> 安装构建依赖（必需）"
 dnf -y --setopt=install_weak_deps=False --setopt=keepcache=1 install \
     cmake gcc gcc-c++ make \
-    ncurses-devel openssl-devel zlib-devel libaio-devel libtirpc-devel \
+    ncurses-devel openssl-devel zlib-devel libaio-devel \
     bison m4 perl \
     systemd-devel \
-    rpm-build \
+    rpm-build dnf-plugins-core \
     tar gzip curl which findutils diffutils file cpio procps-ng shadow-utils
+
+# 麒麟 dnf 有个怪癖：请求 foo-devel 时，如果基础包 foo 已安装，dnf 会打印
+# "Package foo is already installed" 并以 0 退出，但 -devel 并没有装（实测
+# libtirpc-devel 就是如此）。这里逐个复核关键 -devel 包，缺了就用能取到的
+# 最高版本 NEVRA 强装，避免 rpmbuild 在 BuildRequires 校验阶段才报错。
+ensure_pkg() {
+    pkg="$1"
+    rpm -q "$pkg" >/dev/null 2>&1 && return 0
+    dnf -y --setopt=install_weak_deps=False install "$pkg" >/dev/null 2>&1 || :
+    rpm -q "$pkg" >/dev/null 2>&1 && return 0
+    nevra="$(dnf -q repoquery --latest-limit 1 \
+        --qf '%{name}-%{version}-%{release}.%{arch}' "$pkg" 2>/dev/null | tail -1)"
+    if [ -n "$nevra" ]; then
+        echo "    以 NEVRA 重试: $nevra"
+        dnf -y install "$nevra" >/dev/null 2>&1 || :
+    fi
+    rpm -q "$pkg" >/dev/null 2>&1
+}
+
+echo "==> 复核关键 -devel 包（规避上述 dnf 怪癖）"
+for p in libtirpc-devel ncurses-devel openssl-devel zlib-devel libaio-devel systemd-devel; do
+    if ensure_pkg "$p"; then
+        echo "    OK   $p"
+    else
+        echo "    !! 缺少构建依赖: $p"; exit 1
+    fi
+done
 
 echo "==> 安装构建依赖（可选，按发行版命名差异逐个尝试）"
 for pkg in dnf-plugins-core rpcgen numactl-devel systemd-rpm-macros \
