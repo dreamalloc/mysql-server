@@ -15,12 +15,14 @@ jobs:
       image: hxsoong/kylin:v10-sp3
       options: --user root
     steps:
-      - name: protobuf 库文件清单
+      - name: libprotobuf 是否含 lite 符号
         shell: bash
         run: |
           set +e
-          dnf -y install protobuf protobuf-devel >/dev/null 2>&1
-          echo "--- /usr/lib64/libprotobuf* ---"; ls -l /usr/lib64/libprotobuf* 2>/dev/null
-          echo "--- pkgconfig ---"; ls /usr/lib64/pkgconfig/protobuf* 2>/dev/null
-          echo "--- protoc ---"; command -v protoc; protoc --version
-          echo "--- cmake 版本 ---"; cmake --version | head -1
+          dnf -y install protobuf protobuf-devel binutils >/dev/null 2>&1
+          echo "--- libprotobuf.so 里的 MessageLite 符号数 ---"
+          nm -D --defined-only /usr/lib64/libprotobuf.so.23 2>/dev/null | grep -c "MessageLite"
+          echo "--- 抽样 ---"
+          nm -D --defined-only /usr/lib64/libprotobuf.so.23 2>/dev/null | grep "MessageLite" | head -5
+          echo "--- 文件清单（devel 包）---"
+          rpm -ql protobuf-devel | grep -E "libprotobuf|protoc" | head
