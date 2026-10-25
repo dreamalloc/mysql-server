@@ -1,0 +1,37 @@
+name: "debug: 麒麟依赖探测"
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  probe:
+    name: probe (aarch64 / kylin)
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 20
+    container:
+      image: hxsoong/kylin:v10-sp3
+      options: --user root
+    steps:
+      - name: 发行版与仓库
+        shell: bash
+        run: |
+          cat /etc/kylin-release 2>/dev/null || cat /etc/os-release
+          echo "--- repolist ---"
+          dnf repolist || true
+      - name: tirpc 相关包
+        shell: bash
+        run: |
+          echo "--- 已安装 ---"; rpm -qa | grep -i tirpc || echo "(无)"
+          echo "--- 可用 libtirpc* ---"; dnf list --available 'libtirpc*' || true
+          echo "--- 谁提供 rpc/rpc.h ---"; dnf provides '*/rpc/rpc.h' || true
+          echo "--- 谁提供 libtirpc-devel ---"; dnf provides 'libtirpc-devel' || true
+      - name: 其他构建依赖可用性
+        shell: bash
+        run: |
+          for p in numactl-devel rpcgen systemd-rpm-macros kylin-rpm-config dnf-plugins-core perl-Getopt-Long perl-Data-Dumper perl-File-Temp; do
+            printf '%-22s ' "$p"
+            dnf -q list --available "$p" >/dev/null 2>&1 && echo "可安装" || { rpm -q "$p" >/dev/null 2>&1 && echo "已安装" || echo "不可用"; }
+          done
