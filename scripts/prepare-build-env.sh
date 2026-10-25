@@ -62,7 +62,11 @@ ensure_pkg() {
 }
 
 echo "==> 复核关键 -devel 包（规避上述 dnf 怪癖）"
-for p in libtirpc-devel ncurses-devel openssl-devel zlib-devel libaio-devel systemd-devel; do
+# 麒麟额外需要系统 protobuf（8.0 spec 在 kylin 下用 WITH_PROTOBUF=system）：
+# 麒麟自带 3.12.3，可绕开内置 24.4 在 GCC 7 上的编译/链接问题
+CHECK_PKGS="libtirpc-devel ncurses-devel openssl-devel zlib-devel libaio-devel systemd-devel"
+[ "$IS_KYLIN" = "1" ] && CHECK_PKGS="$CHECK_PKGS protobuf-devel protobuf"
+for p in $CHECK_PKGS; do
     if ensure_pkg "$p"; then
         echo "    OK   $p"
     else

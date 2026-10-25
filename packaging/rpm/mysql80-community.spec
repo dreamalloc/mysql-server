@@ -22,6 +22,14 @@
 %global __provides_exclude_from ^(/usr/share/(mysql|mysql-test)/.*|%{_libdir}/mysql/plugin/.*\\.so)$
 
 # debuginfo 体积大，提高压缩比
+# protobuf：麒麟自带 3.12.3（>= MySQL 要求的 3.5.0），用系统包可绕开
+# 内置 24.4 在 GCC 7 上的 constexpr / string_view 链接问题
+%if 0%{?kylin}
+%global proto_opt system
+%else
+%global proto_opt bundled
+%endif
+
 %global _binary_payload w2.xzdio
 
 # 8.0 的 CMake 会给编译加 -fdebug-prefix-map=...=. ，DWARF 里是相对路径，
@@ -66,6 +74,7 @@ BuildRequires:  rpm-build openEuler-rpm-config
 %else
 %if 0%{?kylin}
 BuildRequires:  rpm-build kylin-rpm-config
+BuildRequires:  protobuf-devel protobuf
 %else
 BuildRequires:  rpm-build redhat-rpm-config
 %endif
@@ -163,7 +172,7 @@ cmake .. \
   -DWITH_LIBEVENT=bundled \
   -DWITH_LZ4=bundled \
   -DWITH_ZSTD=bundled \
-  -DWITH_PROTOBUF=bundled \
+  -DWITH_PROTOBUF=%{proto_opt} \
   -DWITH_EDITLINE=bundled \
   -DWITH_ROUTER=OFF \
   -DWITH_UNIT_TESTS=OFF \
