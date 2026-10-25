@@ -172,9 +172,14 @@ jobs:
         run: |
           set -e
           find dist -name '*.rpm' | sort
-          gh release create "$TAG" \
-            --repo "${{ github.repository }}" \
-            --title "MySQL 8.0.37 for Kylin V10 SP3 (aarch64)" \
-            --notes-file dist/BUILD-INFO.txt \
-            $(find dist -name '*.rpm' -o -name 'SHA256SUMS' | sort) \
-          || gh release upload "$TAG" $(find dist -name '*.rpm' -o -name 'SHA256SUMS' | sort) --clobber
+          # 幂等：tag 已存在（重跑 / 重复派发）时改为覆盖资产，不再失败
+          if gh release view "$TAG" --repo "${{ github.repository }}" >/dev/null 2>&1; then
+            gh release upload "$TAG" --repo "${{ github.repository }}" --clobber \
+              $(find dist -name '*.rpm' -o -name 'SHA256SUMS' | sort)
+          else
+            gh release create "$TAG" \
+              --repo "${{ github.repository }}" \
+              --title "MySQL 8.0.37 for Kylin V10 SP3 (aarch64)" \
+              --notes-file dist/BUILD-INFO.txt \
+              $(find dist -name '*.rpm' -o -name 'SHA256SUMS' | sort)
+          fi
