@@ -1,0 +1,30 @@
+Subject: [PATCH] ndb: 用 strtoul 替代 std::from_chars，兼容 GCC 7.3
+
+麒麟 V10 SP3 自带 GCC 7.3，其 libstdc++ 没有 <charconv>（GCC 8 才引入），
+导致 storage/ndb/plugin/ndb_ndbapi_util.cc 在麒麟上编译失败：
+    fatal error: charconv: No such file or directory
+
+全仓库（8.0.37）只有这一处用 std::from_chars，且仅解析十进制无符号整数，
+直接用 strtoul 等价替换即可，行为一致（同样在遇到非数字时停止解析）。
+
+--- a/storage/ndb/plugin/ndb_ndbapi_util.cc
++++ b/storage/ndb/plugin/ndb_ndbapi_util.cc
+@@ -25,8 +25,7 @@
+ 
+ #include "storage/ndb/plugin/ndb_ndbapi_util.h"
+ 
+-#include <charconv>
+-
++#include <cstdlib>   // strtoul（GCC 7 无 <charconv>）
+ #include <string.h>  // memcpy
+ 
+ #include "my_byteorder.h"
+@@ -651,7 +650,7 @@
+ 
+     // Extract parent_id from name format "<parent_id>/<child_id>/<name>"
+     unsigned parent_id = 0;
+-    std::from_chars(elmt.name, elmt.name + 10, parent_id);
++    parent_id = static_cast<unsigned>(strtoul(elmt.name, nullptr, 10));
+     if (parent_id == 0) {
+       // unexpected format, skip
+       assert(false);

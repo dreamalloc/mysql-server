@@ -46,6 +46,8 @@ License:        GPLv2
 URL:            https://github.com/mysql/mysql-server
 Source0:        %{src_dir}.tar.gz
 Source1:        boost_1_77_0.tar.bz2
+# 麒麟 GCC 7.3 无 <charconv>，ndb 里唯一一处 std::from_chars 用 strtoul 替代
+Patch0:         mysql80-charconv-gcc7.patch
 
 BuildRequires:  cmake >= 3.11
 BuildRequires:  gcc gcc-c++ make
@@ -131,6 +133,11 @@ Conflicts:      mariadb-devel
 # ---------------------------------------------------------------------------
 %prep
 %setup -q -n %{src_dir}
+
+# GCC 7 的 libstdc++ 没有 <charconv>，麒麟平台需要打兼容补丁
+%if 0%{?kylin}
+%patch0 -p1
+%endif
 
 # Boost：8.0 用 1.77.0（.tar.bz2），解到与源码平级的独立目录
 mkdir -p %{_builddir}/boost

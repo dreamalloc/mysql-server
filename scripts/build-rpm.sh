@@ -37,6 +37,14 @@ sed -n '1,3p' "${TOP}/tar.list" | sed 's/^/    /'
 echo "    entries: $(wc -l < "${TOP}/tar.list"), size: $(du -h "${TOP}/SOURCES/${SRC_NAME}.tar.gz" | cut -f1)"
 
 cp -f "$BOOST_TARBALL" "${TOP}/SOURCES/${BOOST_VER}.${BOOST_EXT}"
+
+# 补丁（如 8.0 在麒麟 GCC 7 上需要的 charconv 兼容补丁）
+for p in "${REPO_ROOT}"/packaging/rpm/*.patch; do
+    [ -f "$p" ] || continue
+    cp -f "$p" "${TOP}/SOURCES/"
+    echo "    补丁: $(basename "$p")"
+done
+
 cp -f "$SPEC"          "${TOP}/SPECS/${SPEC_NAME}"
 
 echo "==> 校验 spec 可解析"
