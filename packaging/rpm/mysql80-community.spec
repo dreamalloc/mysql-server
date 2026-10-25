@@ -22,12 +22,15 @@
 %global __provides_exclude_from ^(/usr/share/(mysql|mysql-test)/.*|%{_libdir}/mysql/plugin/.*\\.so)$
 
 # debuginfo 体积大，提高压缩比
-# protobuf：麒麟自带 3.12.3（>= MySQL 要求的 3.5.0），用系统包可绕开
-# 内置 24.4 在 GCC 7 上的 constexpr / string_view 链接问题
+# protobuf：内置 24.4 的动态库在麒麟 GCC 7 上链接会缺
+# std::allocator<std::basic_string_view<char>> 符号；给 CXXFLAGS 加
+# -static-libgcc 后，MySQL 的 protobuf 子工程会改编译静态库，绕开该问题。
 %if 0%{?kylin}
-%global proto_opt system
+%global proto_ldflags -static-libgcc
+%global proto_private 0
 %else
-%global proto_opt bundled
+%global proto_ldflags %{nil}
+%global proto_private 1
 %endif
 
 %global _binary_payload w2.xzdio
@@ -74,7 +77,6 @@ BuildRequires:  rpm-build openEuler-rpm-config
 %else
 %if 0%{?kylin}
 BuildRequires:  rpm-build kylin-rpm-config
-BuildRequires:  protobuf-devel protobuf
 %else
 BuildRequires:  rpm-build redhat-rpm-config
 %endif
@@ -163,7 +165,7 @@ cmake .. \
   -DCMAKE_C_COMPILER=%{_bindir}/gcc \
   -DCMAKE_CXX_COMPILER=%{_bindir}/g++ \
   -DCMAKE_C_FLAGS="%{optflags} -fno-omit-frame-pointer %{extra_warn}" \
-  -DCMAKE_CXX_FLAGS="%{optflags} -fno-omit-frame-pointer %{extra_warn}" \
+  -DCMAKE_CXX_FLAGS="%{optflags} -fno-omit-frame-pointer %{extra_warn} %{proto_ldflags}" \
   -DWITH_BOOST=%{_builddir}/boost \
   -DWITH_SYSTEMD=1 \
   -DWITH_SSL=%{?with_ssl}%{!?with_ssl:system} \
@@ -172,7 +174,7 @@ cmake .. \
   -DWITH_LIBEVENT=bundled \
   -DWITH_LZ4=bundled \
   -DWITH_ZSTD=bundled \
-  -DWITH_PROTOBUF=%{proto_opt} \
+  -DWITH_PROTOBUF=bundled \
   -DWITH_EDITLINE=bundled \
   -DWITH_ROUTER=OFF \
   -DWITH_UNIT_TESTS=OFF \
@@ -338,9 +340,11 @@ fi
 %attr(755, root, root) %{_bindir}/lz4_decompress
 %attr(755, root, root) %{_bindir}/zlib_decompress
 
-# 私有依赖（protobuf / 自带 OpenSSL）
+# 私有依赖（protobuf / 自带 OpenSSL）；麒麟用静态 protobuf，无此目录
+%if %{proto_private}
 %dir %{_libdir}/mysql/private
 %{_libdir}/mysql/private/*
+%endif
 
 %dir %{_libdir}/mysql/plugin
 %{_libdir}/mysql/plugin/*.so
