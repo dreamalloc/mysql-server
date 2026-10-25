@@ -148,6 +148,10 @@ Conflicts:      mariadb-devel
 # GCC 7 的 libstdc++ 没有 <charconv>，麒麟平台需要打兼容补丁
 %if 0%{?kylin}
 %patch0 -p1
+# GCC 7 不会为 std::allocator<std::string_view> 发射内联构造符号，
+# 让 abseil 用自有 string_view 实现，避免 protoc 链接失败
+sed -i 's/^#define ABSL_OPTION_USE_STD_STRING_VIEW 2$/#define ABSL_OPTION_USE_STD_STRING_VIEW 0/' \
+    extra/abseil/abseil-cpp-20230802.1/absl/base/options.h
 %endif
 
 # Boost：8.0 用 1.77.0（.tar.bz2），解到与源码平级的独立目录
