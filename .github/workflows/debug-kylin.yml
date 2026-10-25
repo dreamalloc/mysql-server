@@ -15,26 +15,14 @@ jobs:
       image: hxsoong/kylin:v10-sp3
       options: --user root
     steps:
-      - name: libtirpc-devel 安装路径复现
+      - name: 工具链可选项
         shell: bash
         run: |
           set +e
-          echo "--- 已装 ---"; rpm -qa 'libtirpc*'
-          echo "--- libtirpc 的 Provides 里有没有 devel ---"; rpm -q --provides libtirpc | grep -i devel || echo "(没有)"
-          echo "--- 复现构建脚本的安装命令 ---"
-          dnf -y --setopt=install_weak_deps=False --setopt=keepcache=1 install libtirpc-devel; echo "exit=$?"
-          echo "--- 装后检查 ---"; rpm -q libtirpc-devel || echo "(未安装)"
-          echo "--- 显式 NEVRA 再试 ---"
-          dnf -y install libtirpc-devel-1.2.6-4.p01.ky10; echo "exit=$?"
-          rpm -q libtirpc-devel || echo "(仍未安装)"
-      - name: 关键宏与工具
-        shell: bash
-        run: |
-          set +e
-          echo "--- systemd 宏 ---"
-          ls /usr/lib/rpm/macros.d/ 2>/dev/null | grep -i systemd || echo "(没有 macros.systemd)"
-          rpm -q systemd | head -1
-          echo "--- rpmbuild 是否认 %systemd_post ---"
-          printf '%%systemd_post foo.service\n' > /tmp/m.spec
-          rpm --eval '%systemd_post foo.service' >/dev/null 2>&1 && echo "宏可用" || echo "宏不可用"
-          echo "--- kylin-rpm-config ---"; rpm -q kylin-rpm-config 2>/dev/null || echo "(未装)"
+          echo "--- 默认工具链 ---"; gcc --version | head -1; g++ --version | head -1
+          echo "--- gcc-toolset 可用性 ---"
+          dnf list --available 'gcc-toolset*' 2>/dev/null | tail -n +1 | head -20
+          echo "--- devtoolset 可用性 ---"
+          dnf list --available 'devtoolset*' 2>/dev/null | head -10
+          echo "--- 其他更新版 gcc ---"
+          dnf list --available 'gcc*' 2>/dev/null | grep -E "^gcc" | head -10
