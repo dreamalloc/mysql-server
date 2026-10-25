@@ -15,23 +15,26 @@ jobs:
       image: hxsoong/kylin:v10-sp3
       options: --user root
     steps:
-      - name: 发行版与仓库
+      - name: libtirpc-devel 安装路径复现
         shell: bash
         run: |
-          cat /etc/kylin-release 2>/dev/null || cat /etc/os-release
-          echo "--- repolist ---"
-          dnf repolist || true
-      - name: tirpc 相关包
+          set +e
+          echo "--- 已装 ---"; rpm -qa 'libtirpc*'
+          echo "--- libtirpc 的 Provides 里有没有 devel ---"; rpm -q --provides libtirpc | grep -i devel || echo "(没有)"
+          echo "--- 复现构建脚本的安装命令 ---"
+          dnf -y --setopt=install_weak_deps=False --setopt=keepcache=1 install libtirpc-devel; echo "exit=$?"
+          echo "--- 装后检查 ---"; rpm -q libtirpc-devel || echo "(未安装)"
+          echo "--- 显式 NEVRA 再试 ---"
+          dnf -y install libtirpc-devel-1.2.6-4.p01.ky10; echo "exit=$?"
+          rpm -q libtirpc-devel || echo "(仍未安装)"
+      - name: 关键宏与工具
         shell: bash
         run: |
-          echo "--- 已安装 ---"; rpm -qa | grep -i tirpc || echo "(无)"
-          echo "--- 可用 libtirpc* ---"; dnf list --available 'libtirpc*' || true
-          echo "--- 谁提供 rpc/rpc.h ---"; dnf provides '*/rpc/rpc.h' || true
-          echo "--- 谁提供 libtirpc-devel ---"; dnf provides 'libtirpc-devel' || true
-      - name: 其他构建依赖可用性
-        shell: bash
-        run: |
-          for p in numactl-devel rpcgen systemd-rpm-macros kylin-rpm-config dnf-plugins-core perl-Getopt-Long perl-Data-Dumper perl-File-Temp; do
-            printf '%-22s ' "$p"
-            dnf -q list --available "$p" >/dev/null 2>&1 && echo "可安装" || { rpm -q "$p" >/dev/null 2>&1 && echo "已安装" || echo "不可用"; }
-          done
+          set +e
+          echo "--- systemd 宏 ---"
+          ls /usr/lib/rpm/macros.d/ 2>/dev/null | grep -i systemd || echo "(没有 macros.systemd)"
+          rpm -q systemd | head -1
+          echo "--- rpmbuild 是否认 %systemd_post ---"
+          printf '%%systemd_post foo.service\n' > /tmp/m.spec
+          rpm --eval '%systemd_post foo.service' >/dev/null 2>&1 && echo "宏可用" || echo "宏不可用"
+          echo "--- kylin-rpm-config ---"; rpm -q kylin-rpm-config 2>/dev/null || echo "(未装)"
