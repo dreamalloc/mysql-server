@@ -1,8 +1,14 @@
 #!/usr/bin/env bash
 # ---------------------------------------------------------------------------
-# 在 rockylinux:8 (aarch64) 容器内准备 MySQL 5.7.44 的 RPM 构建环境
-# 说明：rockylinux:8 的 glibc 2.28 / rpm 4.14 与麒麟 V10 SP3 同代，
-#       产出的二进制依赖不会带 GLIBC_2.29+ 符号。
+# 在目标平台 arm64 容器内准备 MySQL 的 RPM 构建环境
+#
+# 默认镜像：hxsoong/kylin:v10-sp3（glibc 2.28 / gcc 7.3 / rpm 4.15，与目标机同源）。
+# 与早期 rockylinux:8 代跑方案的差异（PG 侧踩过的坑，这里预先规避）：
+#   1. 麒麟没有 redhat-rpm-config，宏包叫 kylin-rpm-config —— 逐个尝试、缺了不致命；
+#   2. 麒麟没有 powertools/crb 仓库，别把它当成前提（仅非麒麟平台尝试启用）；
+#   3. rpcgen / numactl-devel / perl-* 等包在不同发行版命名不一致，
+#      放进“可选”清单单独安装，避免一个包不存在导致整条 dnf 事务失败；
+#   4. systemd 宏来自 systemd-rpm-macros，显式安装，不依赖 rpm-config 间接带入。
 # ---------------------------------------------------------------------------
 set -eu
 if [ -n "${BASH_VERSION:-}" ]; then set +o pipefail; fi  # GitHub 步骤会带 -o pipefail 并被继承
@@ -12,30 +18,63 @@ BOOST_EXT="${BOOST_EXT:-tar.gz}"
 BOOST_REL="${BOOST_REL:-1.59.0}"
 BOOST_TARBALL="${BOOST_CACHE_DIR:-/var/cache/mysql-build}/${BOOST_VER}.${BOOST_EXT}"
 
-echo "==> 启用 CRB/PowerTools（rpcgen 只在这个仓库里）"
-dnf -y install dnf-plugins-core >/dev/null 2>&1 || :
-dnf config-manager --set-enabled powertools >/dev/null 2>&1 \
-  || dnf config-manager --set-enabled crb >/dev/null 2>&1 \
-  || echo "    (警告：powertools/crb 未启用，若 rpcgen 缺失会导致构建失败)"
+IS_KYLIN=0
+if grep -qi kylin /etc/os-release 2>/dev/null || ls /etc/kylin-release >/dev/null 2>&1; then
+    IS_KYLIN=1
+fi
+echo "==> 发行版：$(cat /etc/kylin-release 2>/dev/null || cat /etc/os-release | sed -n '1,2p' | tr '\n' ' ')"
 
-echo "==> 安装构建依赖"
-dnf -y --setopt=install_weak_deps=False install \
+dnf -y makecache >/dev/null 2>&1 || :
+
+if [ "$IS_KYLIN" = "0" ]; then
+    echo "==> 启用 CRB/PowerTools（rpcgen 只在这个仓库里；麒麟无此仓库，跳过）"
+    dnf -y install dnf-plugins-core >/dev/null 2>&1 || :
+    dnf config-manager --set-enabled powertools >/dev/null 2>&1 \
+      || dnf config-manager --set-enabled crb >/dev/null 2>&1 \
+      || echo "    (提示：powertools/crb 未启用)"
+fi
+
+echo "==> 安装构建依赖（必需）"
+dnf -y --setopt=install_weak_deps=False --setopt=keepcache=1 install \
     cmake gcc gcc-c++ make \
-    ncurses-devel openssl-devel zlib-devel libaio-devel libtirpc-devel rpcgen numactl-devel \
-    bison m4 \
-    perl perl-Getopt-Long perl-Data-Dumper perl-File-Temp \
-    systemd-devel systemd-rpm-macros \
-    rpm-build redhat-rpm-config \
+    ncurses-devel openssl-devel zlib-devel libaio-devel libtirpc-devel \
+    bison m4 perl \
+    systemd-devel \
+    rpm-build \
     tar gzip curl which findutils diffutils file cpio procps-ng shadow-utils
 
-# 关掉 dnf 缓存，省磁盘
-dnf clean all
+echo "==> 安装构建依赖（可选，按发行版命名差异逐个尝试）"
+for pkg in dnf-plugins-core rpcgen numactl-devel systemd-rpm-macros \
+           perl-Getopt-Long perl-Data-Dumper perl-File-Temp; do
+    if dnf -y --setopt=install_weak_deps=False install "$pkg" >/dev/null 2>&1; then
+        echo "    OK   $pkg"
+    else
+        echo "    SKIP $pkg（该发行版无此包，构建可继续）"
+    fi
+done
+
+# rpm 宏包：EL8 是 redhat-rpm-config，麒麟是 kylin-rpm-config，openEuler 是 openEuler-rpm-config
+echo "==> rpm 宏包"
+RPMCFG=""
+for pkg in redhat-rpm-config kylin-rpm-config openEuler-rpm-config; do
+    if dnf -y install "$pkg" >/dev/null 2>&1; then
+        RPMCFG="$pkg"; break
+    fi
+done
+if [ -n "$RPMCFG" ]; then
+    echo "    $RPMCFG"
+else
+    echo "    !! 未找到 rpm 宏包；systemd-rpm-macros 已单独安装，%systemd_post 仍可用"
+fi
+
+dnf clean metadata >/dev/null 2>&1 || :
 rm -rf /var/cache/dnf
 
 echo "==> 组件版本"
-gcc --version | sed -n '1,1p'
-cmake --version | sed -n '1,1p'
-ldd --version | sed -n '1,1p'
+gcc --version | sed -n '1p'
+cmake --version | sed -n '1p'
+make --version | sed -n '1p'
+ldd --version | sed -n '1p'
 rpm --version
 
 echo "==> 准备 Boost ${BOOST_VER}（离线预置，规避 sourceforge 抖动）"

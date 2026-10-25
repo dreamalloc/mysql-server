@@ -12,10 +12,10 @@ name: "Build MySQL 5.7.44 RPM (Kylin V10 SP3 / aarch64)"
 # 2. 构建机必须是原生 aarch64：MySQL 5.7 不支持交叉编译（cmake 里大量
 #    try_run + 汇编探测）。使用 GitHub 托管 ARM64 runner ubuntu-24.04-arm。
 #
-# 3. runner 内跑 rockylinux:8 容器而不是直接在 ubuntu-24.04 上编译：
-#    ubuntu-24.04 的 glibc 2.39 会让产物依赖 GLIBC_2.34+，装不上麒麟 V10 SP3。
-#    rockylinux:8 = glibc 2.28 / rpm 4.14 / gcc 8.5，与麒麟 V10 SP3 同代，
-#    ABI 完全对齐。
+# 3. runner 内直接跑麒麟 V10 SP3 官方 arm64 镜像（hxsoong/kylin:v10-sp3），
+#    不再用 rockylinux:8 代跑。该镜像 = glibc 2.28 / gcc 7.3 / rpm 4.15，
+#    与目标机同源，ABI、rpm 宏、systemd 宏一次性对齐；也避免“代跑镜像里
+#    能过、真机上宏缺失”的偏差（参考 PG 侧踩过的 kylin-rpm-config 坑）。
 # ─────────────────────────────────────────────────────────────────────────────
 
 on:
@@ -56,16 +56,17 @@ env:
   DIST_TAG: ${{ github.event.inputs.dist_tag || '.ky10' }}
   SRC_NAME: mysql-5.7.44
   RPMBUILD_TOP: /build/rpmbuild
+  BUILD_FLAVOR: kylin
   BOOST_CACHE_DIR: /var/cache/mysql-build
 
 jobs:
   # ───────────────────────────────────────────────────────────────────────────
   build:
-    name: rpmbuild (aarch64 / rockylinux8)
+    name: rpmbuild (aarch64 / kylin-v10-sp3)
     runs-on: ubuntu-24.04-arm
     timeout-minutes: 180
     container:
-      image: rockylinux:8
+      image: hxsoong/kylin:v10-sp3
       options: --user root
 
     steps:
@@ -75,7 +76,7 @@ jobs:
           echo "cpu       : $(nproc)"
           echo "disk      :"; df -h / /tmp | sed 's/^/            /'
           echo "memory    :"; free -h | sed 's/^/            /'
-          cat /etc/rocky-release || cat /etc/os-release
+          cat /etc/kylin-release 2>/dev/null || cat /etc/os-release
 
       - name: 检出打包工程（trunk：workflow + spec + scripts）
         uses: actions/checkout@v4

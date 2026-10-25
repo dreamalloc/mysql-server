@@ -45,6 +45,7 @@ env:
   DIST_TAG: ${{ github.event.inputs.dist_tag || '.ky10' }}
   SRC_NAME: mysql-8.0.37
   SPEC_FILE: mysql80-community.spec
+  BUILD_FLAVOR: kylin
   BOOST_VER: boost_1_77_0
   BOOST_EXT: tar.bz2
   BOOST_REL: "1.77.0"
@@ -57,11 +58,11 @@ env:
 
 jobs:
   build:
-    name: rpmbuild (aarch64 / rockylinux8)
+    name: rpmbuild (aarch64 / kylin-v10-sp3)
     runs-on: ubuntu-24.04-arm
     timeout-minutes: 180
     container:
-      image: rockylinux:8
+      image: hxsoong/kylin:v10-sp3
       options: --user root
 
     steps:
@@ -72,7 +73,7 @@ jobs:
           echo "cpu       : $(nproc)"
           echo "disk      :"; df -h / /tmp | sed 's/^/            /'
           echo "memory    :"; free -h 2>/dev/null | sed 's/^/            /' || :
-          cat /etc/rocky-release || cat /etc/os-release
+          cat /etc/kylin-release 2>/dev/null || cat /etc/os-release
 
       - name: 检出打包工程（trunk：workflow + spec + scripts）
         uses: actions/checkout@v4
