@@ -15,16 +15,12 @@ jobs:
       image: hxsoong/kylin:v10-sp3
       options: --user root
     steps:
-      - name: protobuf 可用性
+      - name: protobuf 库文件清单
         shell: bash
         run: |
           set +e
-          echo "--- 可用 protobuf*n ---"
-          dnf list --available 'protobuf*' 2>/dev/null | tail -12
-          echo "--- 已装 ---"; rpm -qa 'protobuf*' | head
-          echo "--- 装 devel + compiler ---"
-          dnf -y install protobuf-devel protobuf-compiler; echo "exit=$?"
-          rpm -q protobuf-devel protobuf-compiler
-          echo "--- 版本 ---"
-          protoc --version 2>/dev/null || echo "(no protoc)"
-          grep -h "GOOGLE_PROTOBUF_VERSION " /usr/include/google/protobuf/stubs/common.h 2>/dev/null | head -2
+          dnf -y install protobuf protobuf-devel >/dev/null 2>&1
+          echo "--- /usr/lib64/libprotobuf* ---"; ls -l /usr/lib64/libprotobuf* 2>/dev/null
+          echo "--- pkgconfig ---"; ls /usr/lib64/pkgconfig/protobuf* 2>/dev/null
+          echo "--- protoc ---"; command -v protoc; protoc --version
+          echo "--- cmake 版本 ---"; cmake --version | head -1
