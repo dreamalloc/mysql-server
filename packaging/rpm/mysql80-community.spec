@@ -27,10 +27,8 @@
 # -static-libgcc 后，MySQL 的 protobuf 子工程会改编译静态库，绕开该问题。
 %if 0%{?kylin}
 %global proto_ldflags -static-libgcc
-%global proto_private 0
 %else
 %global proto_ldflags %{nil}
-%global proto_private 1
 %endif
 
 %global _binary_payload w2.xzdio
@@ -340,11 +338,9 @@ fi
 %attr(755, root, root) %{_bindir}/lz4_decompress
 %attr(755, root, root) %{_bindir}/zlib_decompress
 
-# 私有依赖（protobuf / 自带 OpenSSL）；麒麟用静态 protobuf，无此目录
-%if %{proto_private}
+# 私有依赖与数据（protobuf 动态库或 ICU 数据，随平台不同）
 %dir %{_libdir}/mysql/private
 %{_libdir}/mysql/private/*
-%endif
 
 %dir %{_libdir}/mysql/plugin
 %{_libdir}/mysql/plugin/*.so
