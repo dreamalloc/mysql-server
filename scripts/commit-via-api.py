@@ -19,7 +19,10 @@ API = "https://api.github.com"
 FILES = [
     ".github/workflows/build-mysql57-kylin-arm64.yml",
     ".github/workflows/build-mysql57-openeuler2403-x86_64.yml",
+    ".github/workflows/build-mysql80-kylin-arm64.yml",
+    ".github/workflows/build-mysql80-openeuler2403-x86_64.yml",
     "packaging/rpm/mysql-community.spec",
+    "packaging/rpm/mysql80-community.spec",
     "scripts/prepare-build-env.sh",
     "scripts/prepare-build-env-oe.sh",
     "scripts/build-rpm.sh",

@@ -59,7 +59,11 @@ BuildRequires:  pkgconfig(systemd)
 %if 0%{?oe2403}
 BuildRequires:  rpm-build openEuler-rpm-config
 %else
+%if 0%{?kylin}
+BuildRequires:  rpm-build kylin-rpm-config
+%else
 BuildRequires:  rpm-build redhat-rpm-config
+%endif
 %endif
 BuildRequires:  findutils which tar gzip
 

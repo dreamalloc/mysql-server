@@ -9,8 +9,10 @@
 set -eu
 if [ -n "${BASH_VERSION:-}" ]; then set +o pipefail; fi  # GitHub 步骤会带 -o pipefail 并被继承
 
-BOOST_VER="boost_1_59_0"
-BOOST_TARBALL="${BOOST_CACHE_DIR:-/var/cache/mysql-build}/${BOOST_VER}.tar.gz"
+BOOST_VER="${BOOST_VER:-boost_1_59_0}"
+BOOST_EXT="${BOOST_EXT:-tar.gz}"
+BOOST_REL="${BOOST_REL:-1.59.0}"
+BOOST_TARBALL="${BOOST_CACHE_DIR:-/var/cache/mysql-build}/${BOOST_VER}.${BOOST_EXT}"
 
 echo "==> 系统信息"
 cat /etc/openEuler-release 2>/dev/null || cat /etc/os-release | sed -n '1,3p'
@@ -59,9 +61,9 @@ echo "==> 准备 Boost ${BOOST_VER}"
 mkdir -p "$(dirname "$BOOST_TARBALL")"
 if [ ! -s "$BOOST_TARBALL" ]; then
     for url in \
-        "https://archives.boost.io/release/1.59.0/source/${BOOST_VER}.tar.gz" \
-        "https://downloads.sourceforge.net/boost/${BOOST_VER}.tar.gz" \
-        "https://sourceforge.net/projects/boost/files/boost/1.59.0/${BOOST_VER}.tar.gz/download"
+        "https://archives.boost.io/release/${BOOST_REL}/source/${BOOST_VER}.${BOOST_EXT}" \
+        "https://downloads.sourceforge.net/boost/${BOOST_VER}.${BOOST_EXT}" \
+        "https://sourceforge.net/projects/boost/files/boost/${BOOST_REL}/${BOOST_VER}.${BOOST_EXT}/download"
     do
         echo "    尝试: $url"
         if curl -fL --retry 3 --retry-delay 5 --connect-timeout 20 \
@@ -72,5 +74,5 @@ if [ ! -s "$BOOST_TARBALL" ]; then
     done
 fi
 [ -s "$BOOST_TARBALL" ] || { echo "!! Boost 下载失败"; exit 1; }
-tar -tzf "$BOOST_TARBALL" >/dev/null
+tar -tf "$BOOST_TARBALL" >/dev/null
 echo "    OK: $(du -h "$BOOST_TARBALL" | cut -f1)  $BOOST_TARBALL"

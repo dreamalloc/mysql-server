@@ -75,7 +75,9 @@ fi
 
 echo
 echo "=================== 4. systemd 单元 ==================="
-SRV="$TOP/$(find RPMS -name 'mysql-community-server-*.rpm' -not -name '*debug*' | sed -n '1p')"
+# 包名前缀随版本变化（mysql-community / mysql80-community），用通配避免写死
+SRV="$TOP/$(find RPMS -name '*-server-*.rpm' -not -name '*debug*' -not -name '*.src.rpm' | sed -n '1p')"
+[ -n "$SRV" ] && [ "$SRV" != "$TOP/" ] || { echo "!! 找不到 server 主包"; exit 1; }
 mkdir -p "$WORK/u"
 ( cd "$WORK" && rpm2cpio "$SRV" | cpio -idm --quiet 2>/dev/null ) || true
 for u in mysqld.service 'mysqld@.service'; do
@@ -121,7 +123,7 @@ sed 's/^/    /' SHA256SUMS | sed -n '1,20p'
     echo "source ref   : ${SRC_REF:-mysql-5.7.44}"
     echo "source commit: $(cat /tmp/src_commit.txt 2>/dev/null || echo unknown)"
     echo "runner       : $(uname -m) / $(nproc) vCPU"
-    echo "build rootfs : $(cat /etc/rocky-release 2>/dev/null || echo rocky8)"
+    echo "build rootfs : $(cat /etc/kylin-release 2>/dev/null || cat /etc/rocky-release 2>/dev/null || cat /etc/os-release | sed -n '1,2p' | tr '\n' ' ')"
     echo "gcc          : $(gcc --version | sed -n '1,1p')"
     echo "glibc        : $(ldd --version | sed -n '1,1p')"
     echo "cmake        : $(cmake --version | sed -n '1,1p')"

@@ -1,0 +1,66 @@
+Subject: [PATCH] 兼容 GCC 7.3（麒麟 V10 SP3）
+
+麒麟 V10 SP3 自带 GCC 7.3：
+  1) libstdc++ 没有 <charconv>（GCC 8.1 才引入），ndb 插件里唯一一处
+     std::from_chars 报 fatal error: charconv；
+  2) 内置 protobuf 24.4 的 implicit_weak_message.cc 用 constexpr 构造
+     非字面类型，GCC 7 报 "temporary of non-literal type in a constant
+     expression"（PROTOBUF_CONSTINIT 在 GCC < 12 本就是空宏，去掉
+     constexpr 不改变语义，只变成动态初始化）；
+  3) abseil 在 C++17 下把 absl::string_view 别名到 std::string_view，而
+     GCC 7 不会为 std::allocator<std::string_view> 发射内联构造符号，
+     protoc 链接报 undefined reference；该处由 spec 里的 sed 处理
+     （ABSL_OPTION_USE_STD_STRING_VIEW 2 -> 0），不走补丁上下文。
+
+全仓库（8.0.37）仅这两处需要处理，且都只在麒麟平台应用。
+
+--- a/storage/ndb/plugin/ndb_ndbapi_util.cc
++++ b/storage/ndb/plugin/ndb_ndbapi_util.cc
+@@ -25,8 +25,7 @@
+ 
+ #include "storage/ndb/plugin/ndb_ndbapi_util.h"
+ 
+-#include <charconv>
+-
++#include <cstdlib>   // strtoul（GCC 7 无 <charconv>）
+ #include <string.h>  // memcpy
+ 
+ #include "my_byteorder.h"
+@@ -651,7 +650,7 @@
+ 
+     // Extract parent_id from name format "<parent_id>/<child_id>/<name>"
+     unsigned parent_id = 0;
+-    std::from_chars(elmt.name, elmt.name + 10, parent_id);
++    parent_id = static_cast<unsigned>(strtoul(elmt.name, nullptr, 10));
+     if (parent_id == 0) {
+       // unexpected format, skip
+       assert(false);
+--- a/extra/protobuf/protobuf-24.4/src/google/protobuf/implicit_weak_message.cc
++++ b/extra/protobuf/protobuf-24.4/src/google/protobuf/implicit_weak_message.cc
+@@ -51,7 +51,7 @@
+ struct ImplicitWeakMessageDefaultType {
+-  constexpr ImplicitWeakMessageDefaultType()
++  ImplicitWeakMessageDefaultType()
+       : instance(ConstantInitialized{}) {}
+   ~ImplicitWeakMessageDefaultType() {}
+   union {
+     ImplicitWeakMessage instance;
+   };
+ };
+--- a/extra/protobuf/protobuf-24.4/src/google/protobuf/implicit_weak_message.cc
++++ b/extra/protobuf/protobuf-24.4/src/google/protobuf/implicit_weak_message.cc
+@@ -65,8 +65,14 @@
+       &implicit_weak_message_default_instance);
+ }
+ 
+ }  // namespace internal
+ }  // namespace protobuf
+ }  // namespace google
+ 
+ #include "google/protobuf/port_undef.inc"
++
++// GCC 7 不会为 std::allocator<std::string_view> 发射默认构造符号（absl 容器
++// 用 initializer_list 构造时会引用它），这里显式实例化强制生成。
++#include <memory>
++#include <string_view>
++template class std::allocator<std::string_view>;
