@@ -47,3 +47,20 @@ Subject: [PATCH] 兼容 GCC 7.3（麒麟 V10 SP3）
      ImplicitWeakMessage instance;
    };
  };
+--- a/extra/protobuf/protobuf-24.4/src/google/protobuf/implicit_weak_message.cc
++++ b/extra/protobuf/protobuf-24.4/src/google/protobuf/implicit_weak_message.cc
+@@ -65,8 +65,14 @@
+       &implicit_weak_message_default_instance);
+ }
+ 
+ }  // namespace internal
+ }  // namespace protobuf
+ }  // namespace google
+ 
+ #include "google/protobuf/port_undef.inc"
++
++// GCC 7 不会为 std::allocator<std::string_view> 发射默认构造符号（absl 容器
++// 用 initializer_list 构造时会引用它），这里显式实例化强制生成。
++#include <memory>
++#include <string_view>
++template class std::allocator<std::string_view>;
